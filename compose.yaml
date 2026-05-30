@@ -1,0 +1,6 @@
+services:
+  eaglebank-api:
+    image: eaglebank-api
+    build:
+      context: .
+      dockerfile: EagleBank.Api/Dockerfile
