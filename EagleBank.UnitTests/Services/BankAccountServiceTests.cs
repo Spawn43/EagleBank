@@ -1,8 +1,10 @@
 using EagleBank.Domain.Interfaces;
 using EagleBank.Domain.Models;
 using EagleBank.Domain.Services;
+using EagleBank.Domain.Settings;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 
@@ -18,7 +20,10 @@ public class BankAccountServiceTests
     public void SetUp()
     {
         _repository = Substitute.For<IBankAccountRepository>();
-        _sut = new BankAccountService(_repository, NullLogger<BankAccountService>.Instance);
+        _sut = new BankAccountService(
+            _repository,
+            NullLogger<BankAccountService>.Instance,
+            Options.Create(new BankAccountSettings { AccountNumberMaxRetries = 10 }));
     }
 
     // CreateAccountAsync
@@ -92,6 +97,39 @@ public class BankAccountServiceTests
 
         // Assert
         await act.Should().ThrowAsync<Exception>().WithMessage("Database connection failed");
+    }
+
+    [Test]
+    public async Task CreateAccountAsync_WhenAccountNumberCollides_RetriesAndSucceeds()
+    {
+        // Arrange
+        _repository.ExistsByAccountNumberAsync(Arg.Any<string>()).Returns(true, false);
+        _repository.CreateAsync(Arg.Any<BankAccount>()).Returns(x => x.Arg<BankAccount>());
+
+        // Act
+        var result = await _sut.CreateAccountAsync("usr-abc123", "My Account", AccountType.Personal);
+
+        // Assert
+        result.AccountNumber.Should().MatchRegex(@"^01\d{6}$");
+        await _repository.Received(2).ExistsByAccountNumberAsync(Arg.Any<string>());
+    }
+
+    [Test]
+    public async Task CreateAccountAsync_WhenMaxRetriesExhausted_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        var sut = new BankAccountService(
+            _repository,
+            NullLogger<BankAccountService>.Instance,
+            Options.Create(new BankAccountSettings { AccountNumberMaxRetries = 3 }));
+        _repository.ExistsByAccountNumberAsync(Arg.Any<string>()).Returns(true);
+
+        // Act
+        var act = () => sut.CreateAccountAsync("usr-abc123", "My Account", AccountType.Personal);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        await _repository.Received(3).ExistsByAccountNumberAsync(Arg.Any<string>());
     }
 
     // ListAccountsAsync

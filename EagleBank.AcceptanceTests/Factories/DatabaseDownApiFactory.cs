@@ -39,6 +39,7 @@ file class AlwaysThrowingBankAccountRepository : IBankAccountRepository
     private const string Message = "Database connection failed";
 
     public Task<BankAccount> CreateAsync(BankAccount account) => throw new Exception(Message);
+    public Task<bool> ExistsByAccountNumberAsync(string accountNumber) => throw new Exception(Message);
     public Task<BankAccount?> GetByAccountNumberAsync(string accountNumber) => throw new Exception(Message);
     public Task<IEnumerable<BankAccount>> GetByUserIdAsync(string userId) => throw new Exception(Message);
 }

@@ -14,6 +14,5 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
 
         modelBuilder.Entity<BankAccount>().HasKey(a => a.AccountNumber);
-        modelBuilder.Entity<BankAccount>().HasIndex(a => a.AccountNumber).IsUnique();
     }
 }

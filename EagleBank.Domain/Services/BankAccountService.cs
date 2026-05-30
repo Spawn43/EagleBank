@@ -1,21 +1,26 @@
 using EagleBank.Domain.DTOs;
 using EagleBank.Domain.Interfaces;
 using EagleBank.Domain.Models;
+using EagleBank.Domain.Settings;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace EagleBank.Domain.Services;
 
 public class BankAccountService(
     IBankAccountRepository bankAccountRepository,
-    ILogger<BankAccountService> logger) : IBankAccountService
+    ILogger<BankAccountService> logger,
+    IOptions<BankAccountSettings> settings) : IBankAccountService
 {
     public async Task<BankAccountDto> CreateAccountAsync(string userId, string name, AccountType accountType)
     {
         logger.LogInformation("Creating bank account for user {UserId}", userId);
 
+        var accountNumber = await GenerateUniqueAccountNumberAsync(userId);
+
         var account = new BankAccount
         {
-            AccountNumber = $"01{Random.Shared.Next(0, 1_000_000):D6}",
+            AccountNumber = accountNumber,
             SortCode = "10-10-10",
             Name = name,
             AccountType = accountType,
@@ -31,6 +36,24 @@ public class BankAccountService(
         logger.LogInformation("Bank account created successfully {AccountNumber} for user {UserId}", created.AccountNumber, userId);
 
         return ToDto(created);
+    }
+
+    private async Task<string> GenerateUniqueAccountNumberAsync(string userId)
+    {
+        var maxRetries = settings.Value.AccountNumberMaxRetries;
+
+        for (var attempt = 0; attempt < maxRetries; attempt++)
+        {
+            var candidate = $"01{Random.Shared.Next(0, 1_000_000):D6}";
+
+            if (!await bankAccountRepository.ExistsByAccountNumberAsync(candidate))
+                return candidate;
+
+            logger.LogWarning("Account number collision on attempt {Attempt} for user {UserId}", attempt + 1, userId);
+        }
+
+        logger.LogError("Failed to generate unique account number after {MaxRetries} attempts for user {UserId}", maxRetries, userId);
+        throw new InvalidOperationException($"Failed to generate a unique account number after {maxRetries} attempts");
     }
 
     public async Task<IEnumerable<BankAccountDto>> ListAccountsAsync(string userId)

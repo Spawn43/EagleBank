@@ -13,6 +13,11 @@ public class BankAccountRepository(AppDbContext context) : IBankAccountRepositor
         return account;
     }
 
+    public async Task<bool> ExistsByAccountNumberAsync(string accountNumber)
+    {
+        return await context.BankAccounts.AnyAsync(a => a.AccountNumber == accountNumber);
+    }
+
     public async Task<BankAccount?> GetByAccountNumberAsync(string accountNumber)
     {
         return await context.BankAccounts.FirstOrDefaultAsync(a => a.AccountNumber == accountNumber);

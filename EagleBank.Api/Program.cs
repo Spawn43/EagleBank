@@ -8,6 +8,7 @@ using EagleBank.Data.Repositories;
 using EagleBank.Data.Security;
 using EagleBank.Domain.Interfaces;
 using EagleBank.Domain.Services;
+using EagleBank.Domain.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -95,6 +96,7 @@ builder.Services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITokenGenerator, JwtTokenGenerator>();
+builder.Services.Configure<BankAccountSettings>(builder.Configuration.GetSection("BankAccountSettings"));
 builder.Services.AddScoped<IBankAccountRepository, BankAccountRepository>();
 builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 
