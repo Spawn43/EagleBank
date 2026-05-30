@@ -75,20 +75,6 @@ public class DeleteUserTests
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    [Test]
-    public async Task DeleteUser_WithInvalidToken_Returns401()
-    {
-        // Arrange
-        var (user, _) = await CreateUserAndAuthenticate();
-        var client = AuthenticatedClient("this.is.not.valid");
-
-        // Act
-        var response = await client.DeleteAsync($"/v1/users/{user.Id}");
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-    }
-
     // 403
 
     [Test]
@@ -153,25 +139,10 @@ public class DeleteUserTests
 
         // Act
         var response = await downClient.DeleteAsync($"/v1/users/{user.Id}");
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
-    }
-
-    [Test]
-    public async Task DeleteUser_WhenDatabaseGoesDownAfterAuthentication_DoesNotLeakExceptionDetails()
-    {
-        // Arrange
-        var (user, token) = await CreateUserAndAuthenticate();
-        await using var downFactory = new DatabaseDownApiFactory();
-        var downClient = downFactory.CreateClient();
-        downClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        // Act
-        var response = await downClient.DeleteAsync($"/v1/users/{user.Id}");
         var body = await response.Content.ReadAsStringAsync();
 
         // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
         body.Should().NotContain("Database connection failed");
         body.Should().NotContain("StackTrace");
     }

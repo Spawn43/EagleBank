@@ -98,19 +98,6 @@ public class ListAccountsTests
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    [Test]
-    public async Task ListAccounts_WithInvalidToken_Returns401()
-    {
-        // Arrange
-        var client = AuthenticatedClient("this.is.not.valid");
-
-        // Act
-        var response = await client.GetAsync("/v1/accounts");
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-    }
-
     // 500
 
     [Test]

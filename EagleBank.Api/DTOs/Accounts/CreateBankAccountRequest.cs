@@ -11,3 +11,4 @@ public class CreateBankAccountRequest
     [Required]
     public AccountType? AccountType { get; set; }
 }
+    

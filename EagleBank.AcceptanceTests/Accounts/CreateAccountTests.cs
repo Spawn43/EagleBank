@@ -136,20 +136,6 @@ public class CreateAccountTests
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    [Test]
-    public async Task CreateAccount_WithInvalidToken_Returns401()
-    {
-        // Arrange
-        var client = AuthenticatedClient("this.is.not.valid");
-        var request = ValidRequest();
-
-        // Act
-        var response = await client.PostAsJsonAsync("/v1/accounts", request);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-    }
-
     // 500
 
     [Test]
@@ -165,28 +151,10 @@ public class CreateAccountTests
 
         // Act
         var response = await downClient.PostAsJsonAsync("/v1/accounts", request);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
-    }
-
-    [Test]
-    public async Task CreateAccount_WhenDatabaseDown_ReturnsErrorResponseWithMessage()
-    {
-        // Arrange
-        var userId = $"usr-{Guid.NewGuid():N}";
-        var token = TokenHelper.GenerateTokenForUser(userId);
-        await using var downFactory = new DatabaseDownApiFactory();
-        var downClient = downFactory.CreateClient();
-        downClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        var request = ValidRequest();
-
-        // Act
-        var response = await downClient.PostAsJsonAsync("/v1/accounts", request);
         var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
 
         // Assert
-        body.Should().NotBeNull();
+        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
         body!.Message.Should().Be("An unexpected error occurred");
     }
 

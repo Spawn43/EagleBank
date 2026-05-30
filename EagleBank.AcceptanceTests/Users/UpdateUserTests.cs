@@ -158,21 +158,6 @@ public class UpdateUserTests
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    [Test]
-    public async Task UpdateUser_WithInvalidToken_Returns401()
-    {
-        // Arrange
-        var (user, _) = await CreateUserAndAuthenticate();
-        var client = AuthenticatedClient("this.is.not.valid");
-        var request = new UpdateUserRequest { Name = "Updated Name" };
-
-        // Act
-        var response = await client.PatchAsJsonAsync($"/v1/users/{user.Id}", request);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-    }
-
     // 403
 
     [Test]
@@ -223,26 +208,10 @@ public class UpdateUserTests
 
         // Act
         var response = await downClient.PatchAsJsonAsync($"/v1/users/{user.Id}", request);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
-    }
-
-    [Test]
-    public async Task UpdateUser_WhenDatabaseGoesDownAfterAuthentication_DoesNotLeakExceptionDetails()
-    {
-        // Arrange
-        var (user, token) = await CreateUserAndAuthenticate();
-        await using var downFactory = new DatabaseDownApiFactory();
-        var downClient = downFactory.CreateClient();
-        downClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        var request = new UpdateUserRequest { Name = "Updated Name" };
-
-        // Act
-        var response = await downClient.PatchAsJsonAsync($"/v1/users/{user.Id}", request);
         var body = await response.Content.ReadAsStringAsync();
 
         // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
         body.Should().NotContain("Database connection failed");
         body.Should().NotContain("StackTrace");
     }

@@ -40,40 +40,13 @@ public class AuthTests
 
         // Act
         var response = await _client.PostAsJsonAsync("/v1/auth/token", request);
+        var body = await response.Content.ReadFromJsonAsync<AuthResponse>();
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-    }
-
-    [Test]
-    public async Task Token_WithValidCredentials_ReturnsNonEmptyToken()
-    {
-        // Arrange
-        var email = await CreateUser();
-        var request = new AuthRequest { Email = email, Password = "password123" };
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/v1/auth/token", request);
-        var body = await response.Content.ReadFromJsonAsync<AuthResponse>();
-
-        // Assert
         body.Should().NotBeNull();
         body!.Token.Should().NotBeNullOrWhiteSpace();
-    }
-
-    [Test]
-    public async Task Token_WithValidCredentials_ReturnsValidJwtFormat()
-    {
-        // Arrange
-        var email = await CreateUser();
-        var request = new AuthRequest { Email = email, Password = "password123" };
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/v1/auth/token", request);
-        var body = await response.Content.ReadFromJsonAsync<AuthResponse>();
-
-        // Assert
-        body!.Token.Split('.').Should().HaveCount(3);
+        body.Token.Split('.').Should().HaveCount(3);
     }
 
     // 400
@@ -184,24 +157,10 @@ public class AuthTests
 
         // Act
         var response = await client.PostAsJsonAsync("/v1/auth/token", request);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
-    }
-
-    [Test]
-    public async Task Token_WhenDatabaseDown_DoesNotLeakExceptionDetails()
-    {
-        // Arrange
-        await using var downFactory = new DatabaseDownApiFactory();
-        var client = downFactory.CreateClient();
-        var request = new AuthRequest { Email = "jane@example.com", Password = "password123" };
-
-        // Act
-        var response = await client.PostAsJsonAsync("/v1/auth/token", request);
         var body = await response.Content.ReadAsStringAsync();
 
         // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
         body.Should().NotContain("Database connection failed");
         body.Should().NotContain("StackTrace");
     }

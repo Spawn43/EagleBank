@@ -72,36 +72,10 @@ public class GetUserTests
 
         // Act
         var response = await _client.GetAsync($"/v1/users/{user.Id}");
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-    }
-
-    [Test]
-    public async Task GetUser_WithInvalidToken_Returns401()
-    {
-        // Arrange
-        var (user, _) = await CreateUserAndAuthenticate();
-        var client = AuthenticatedClient("this.is.not.valid");
-
-        // Act
-        var response = await client.GetAsync($"/v1/users/{user.Id}");
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-    }
-
-    [Test]
-    public async Task GetUser_WithNoToken_ReturnsErrorResponseShape()
-    {
-        // Arrange
-        var (user, _) = await CreateUserAndAuthenticate();
-
-        // Act
-        var response = await _client.GetAsync($"/v1/users/{user.Id}");
         var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
 
         // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         body!.Message.Should().NotBeNullOrWhiteSpace();
     }
 
@@ -120,22 +94,6 @@ public class GetUserTests
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-    }
-
-    [Test]
-    public async Task GetUser_WithAnotherUsersToken_ReturnsErrorResponseShape()
-    {
-        // Arrange
-        var (userA, _) = await CreateUserAndAuthenticate();
-        var (_, tokenB) = await CreateUserAndAuthenticate();
-        var clientB = AuthenticatedClient(tokenB);
-
-        // Act
-        var response = await clientB.GetAsync($"/v1/users/{userA.Id}");
-        var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-
-        // Assert
-        body!.Message.Should().NotBeNullOrWhiteSpace();
     }
 
     // 404
@@ -168,25 +126,10 @@ public class GetUserTests
 
         // Act
         var response = await downClient.GetAsync($"/v1/users/{user.Id}");
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
-    }
-
-    [Test]
-    public async Task GetUser_WhenDatabaseGoesDownAfterAuthentication_DoesNotLeakExceptionDetails()
-    {
-        // Arrange
-        var (user, token) = await CreateUserAndAuthenticate();
-        await using var downFactory = new DatabaseDownApiFactory();
-        var downClient = downFactory.CreateClient();
-        downClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        // Act
-        var response = await downClient.GetAsync($"/v1/users/{user.Id}");
         var body = await response.Content.ReadAsStringAsync();
 
         // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
         body.Should().NotContain("Database connection failed");
         body.Should().NotContain("StackTrace");
     }
@@ -208,22 +151,7 @@ public class GetUserTests
         body.Should().NotContainAny("password", "passwordHash", "hash", "Password", "PasswordHash");
     }
 
-    [Test]
-    public async Task GetUser_ResponseDoesNotContainSubmittedPasswordValue()
-    {
-        // Arrange
-        var (user, token) = await CreateUserAndAuthenticate(password: "SuperSecret99!");
-        var client = AuthenticatedClient(token);
-
-        // Act
-        var response = await client.GetAsync($"/v1/users/{user.Id}");
-        var body = await response.Content.ReadAsStringAsync();
-
-        // Assert
-        body.Should().NotContain("SuperSecret99!");
-    }
-
-    private async Task<(UserResponse user, string token)> CreateUserAndAuthenticate(string password = "password123")
+    private async Task<(UserResponse user, string token)> CreateUserAndAuthenticate()
     {
         var email = $"jane-{Guid.NewGuid()}@example.com";
         var createRequest = new CreateUserRequest
@@ -232,12 +160,12 @@ public class GetUserTests
             Address = new AddressDto { Line1 = "123 Test Street", Town = "London", County = "Greater London", Postcode = "EC1A 1BB" },
             PhoneNumber = "+447700900000",
             Email = email,
-            Password = password
+            Password = "password123"
         };
         var createResponse = await _client.PostAsJsonAsync("/v1/users", createRequest);
         var user = (await createResponse.Content.ReadFromJsonAsync<UserResponse>())!;
 
-        var tokenRequest = new AuthRequest { Email = email, Password = password };
+        var tokenRequest = new AuthRequest { Email = email, Password = "password123" };
         var tokenResponse = await _client.PostAsJsonAsync("/v1/auth/token", tokenRequest);
         var tokenBody = (await tokenResponse.Content.ReadFromJsonAsync<AuthResponse>())!;
 

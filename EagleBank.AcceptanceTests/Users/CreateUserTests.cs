@@ -111,27 +111,10 @@ public class CreateUserTests
 
         // Act
         var response = await _client.PostAsJsonAsync("/v1/users", second);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-    }
-
-    [Test]
-    public async Task CreateUser_WithDuplicateEmail_ReturnsErrorResponseShape()
-    {
-        // Arrange
-        var email = $"duplicate-{Guid.NewGuid()}@example.com";
-        var first = ValidRequest();
-        first.Email = email;
-        await _client.PostAsJsonAsync("/v1/users", first);
-        var second = ValidRequest();
-        second.Email = email;
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/v1/users", second);
         var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
 
         // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
         body.Should().NotBeNull();
         body!.Message.Should().NotBeNullOrWhiteSpace();
     }
@@ -322,41 +305,11 @@ public class CreateUserTests
 
         // Act
         var response = await client.PostAsJsonAsync("/v1/users", request);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
-    }
-
-    [Test]
-    public async Task CreateUser_WhenDatabaseDown_ReturnsErrorResponseWithMessage()
-    {
-        // Arrange
-        await using var downFactory = new DatabaseDownApiFactory();
-        var client = downFactory.CreateClient();
-        var request = ValidRequest();
-
-        // Act
-        var response = await client.PostAsJsonAsync("/v1/users", request);
-        var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-
-        // Assert
-        body.Should().NotBeNull();
-        body!.Message.Should().Be("An unexpected error occurred");
-    }
-
-    [Test]
-    public async Task CreateUser_WhenDatabaseDown_DoesNotLeakExceptionDetails()
-    {
-        // Arrange
-        await using var downFactory = new DatabaseDownApiFactory();
-        var client = downFactory.CreateClient();
-        var request = ValidRequest();
-
-        // Act
-        var response = await client.PostAsJsonAsync("/v1/users", request);
         var body = await response.Content.ReadAsStringAsync();
 
         // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+        body.Should().Contain("An unexpected error occurred");
         body.Should().NotContain("Database connection failed");
         body.Should().NotContain("StackTrace");
     }

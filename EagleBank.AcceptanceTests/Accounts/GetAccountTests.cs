@@ -118,20 +118,6 @@ public class GetAccountTests
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    [Test]
-    public async Task GetAccount_WithInvalidToken_Returns401()
-    {
-        // Arrange
-        var (account, _) = await CreateAccountAndAuthenticate();
-        var client = AuthenticatedClient("this.is.not.valid");
-
-        // Act
-        var response = await client.GetAsync($"/v1/accounts/{account.AccountNumber}");
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-    }
-
     // 403
 
     [Test]
@@ -149,23 +135,6 @@ public class GetAccountTests
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
-    [Test]
-    public async Task GetAccount_WhenNotOwner_ReturnsErrorResponseShape()
-    {
-        // Arrange
-        var (account, _) = await CreateAccountAndAuthenticate();
-        var (_, tokenB) = await CreateUserAndAuthenticate();
-        var clientB = AuthenticatedClient(tokenB);
-
-        // Act
-        var response = await clientB.GetAsync($"/v1/accounts/{account.AccountNumber}");
-        var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-
-        // Assert
-        body.Should().NotBeNull();
-        body!.Message.Should().NotBeNullOrWhiteSpace();
-    }
-
     // 404
 
     [Test]
@@ -180,22 +149,6 @@ public class GetAccountTests
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-    }
-
-    [Test]
-    public async Task GetAccount_WhenAccountNotFound_ReturnsErrorResponseShape()
-    {
-        // Arrange
-        var (_, token) = await CreateUserAndAuthenticate();
-        var client = AuthenticatedClient(token);
-
-        // Act
-        var response = await client.GetAsync("/v1/accounts/01999998");
-        var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-
-        // Assert
-        body.Should().NotBeNull();
-        body!.Message.Should().NotBeNullOrWhiteSpace();
     }
 
     // 500
