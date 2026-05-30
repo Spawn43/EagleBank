@@ -12,13 +12,13 @@ public class DatabaseDownApiFactory : WebApplicationFactory<Program>
     {
         builder.ConfigureServices(services =>
         {
-            var descriptor = services.SingleOrDefault(d =>
-                d.ServiceType == typeof(IUserRepository));
-
-            if (descriptor != null)
-                services.Remove(descriptor);
-
+            var userRepo = services.SingleOrDefault(d => d.ServiceType == typeof(IUserRepository));
+            if (userRepo != null) services.Remove(userRepo);
             services.AddScoped<IUserRepository, AlwaysThrowingUserRepository>();
+
+            var accountRepo = services.SingleOrDefault(d => d.ServiceType == typeof(IBankAccountRepository));
+            if (accountRepo != null) services.Remove(accountRepo);
+            services.AddScoped<IBankAccountRepository, AlwaysThrowingBankAccountRepository>();
         });
     }
 }
@@ -32,4 +32,13 @@ file class AlwaysThrowingUserRepository : IUserRepository
     public Task<User?> GetByEmailAsync(string email) => throw new Exception(Message);
     public Task<User> UpdateAsync(User user) => throw new Exception(Message);
     public Task DeleteAsync(User user) => throw new Exception(Message);
+}
+
+file class AlwaysThrowingBankAccountRepository : IBankAccountRepository
+{
+    private const string Message = "Database connection failed";
+
+    public Task<BankAccount> CreateAsync(BankAccount account) => throw new Exception(Message);
+    public Task<BankAccount?> GetByAccountNumberAsync(string accountNumber) => throw new Exception(Message);
+    public Task<IEnumerable<BankAccount>> GetByUserIdAsync(string userId) => throw new Exception(Message);
 }

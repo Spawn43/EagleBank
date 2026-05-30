@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using EagleBank.Api.DTOs;
 using EagleBank.Api.Middleware;
 using EagleBank.Api.Services;
@@ -27,6 +28,10 @@ var builder = WebApplication.CreateBuilder(args);
 // No other code needs to change — all reads below use IConfiguration.
 
 builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase));
+    })
     .ConfigureApiBehaviorOptions(options =>
     {
         options.InvalidModelStateResponseFactory = context =>
@@ -90,6 +95,8 @@ builder.Services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITokenGenerator, JwtTokenGenerator>();
+builder.Services.AddScoped<IBankAccountRepository, BankAccountRepository>();
+builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 
 var app = builder.Build();
 
