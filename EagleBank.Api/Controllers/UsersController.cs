@@ -20,7 +20,8 @@ public class UsersController(IUserService userService, ILogger<UsersController> 
             request.Name,
             MapToAddress(request.Address),
             request.PhoneNumber,
-            request.Email);
+            request.Email,
+            request.Password);
 
         logger.LogInformation("Returning 201 for created user {UserId}", user.Id);
 

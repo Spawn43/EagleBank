@@ -6,11 +6,16 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{FDA9BD68-8811-47E2-86F9-905AC2FD15D2}"
 	ProjectSection(SolutionItems) = preProject
 		compose.yaml = compose.yaml
+		openapi.yaml = openapi.yaml
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EagleBank.Domain", "EagleBank.Domain\EagleBank.Domain.csproj", "{91416D8D-2C85-4F4D-AA5C-9CFA3947F456}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EagleBank.Data", "EagleBank.Data\EagleBank.Data.csproj", "{5590D654-BF32-4379-A04B-70FDDD84598E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EagleBank.UnitTests", "EagleBank.UnitTests\EagleBank.UnitTests.csproj", "{B7189B72-10A6-44E4-8643-17CC8215CC6C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EagleBank.AcceptanceTests", "EagleBank.AcceptanceTests\EagleBank.AcceptanceTests.csproj", "{DA79E3DD-6A78-4029-96F0-C3891CE53E60}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -30,5 +35,13 @@ Global
 		{5590D654-BF32-4379-A04B-70FDDD84598E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5590D654-BF32-4379-A04B-70FDDD84598E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5590D654-BF32-4379-A04B-70FDDD84598E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B7189B72-10A6-44E4-8643-17CC8215CC6C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B7189B72-10A6-44E4-8643-17CC8215CC6C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B7189B72-10A6-44E4-8643-17CC8215CC6C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B7189B72-10A6-44E4-8643-17CC8215CC6C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DA79E3DD-6A78-4029-96F0-C3891CE53E60}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DA79E3DD-6A78-4029-96F0-C3891CE53E60}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DA79E3DD-6A78-4029-96F0-C3891CE53E60}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DA79E3DD-6A78-4029-96F0-C3891CE53E60}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -5,9 +5,12 @@ using Microsoft.Extensions.Logging;
 
 namespace EagleBank.Domain.Services;
 
-public class UserService(IUserRepository userRepository, ILogger<UserService> logger) : IUserService
+public class UserService(
+    IUserRepository userRepository,
+    IPasswordHasher passwordHasher,
+    ILogger<UserService> logger) : IUserService
 {
-    public async Task<UserDto> CreateUserAsync(string name, Address address, string phoneNumber, string email)
+    public async Task<UserDto> CreateUserAsync(string name, Address address, string phoneNumber, string email, string password)
     {
         logger.LogInformation("Creating new user");
 
@@ -18,6 +21,7 @@ public class UserService(IUserRepository userRepository, ILogger<UserService> lo
             Address = address,
             PhoneNumber = phoneNumber,
             Email = email,
+            PasswordHash = passwordHasher.Hash(password),
             CreatedTimestamp = DateTime.UtcNow,
             UpdatedTimestamp = DateTime.UtcNow
         };
@@ -88,6 +92,7 @@ public class UserService(IUserRepository userRepository, ILogger<UserService> lo
         logger.LogInformation("User deleted successfully {UserId}", id);
     }
 
+    // PasswordHash is deliberately excluded — it must never leave the domain layer
     private static UserDto ToDto(User user) => new(
         user.Id,
         user.Name,
