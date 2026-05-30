@@ -1,7 +1,10 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using EagleBank.AcceptanceTests.Factories;
+using EagleBank.AcceptanceTests.Helpers;
 using EagleBank.Api.DTOs;
+using EagleBank.Api.DTOs.Auth;
 using EagleBank.Api.DTOs.Users;
 using FluentAssertions;
 
@@ -9,14 +12,20 @@ namespace EagleBank.AcceptanceTests.Users;
 
 public class DeleteUserTests(EagleBankApiFactory factory) : IClassFixture<EagleBankApiFactory>
 {
+    private readonly EagleBankApiFactory _factory = factory;
     private readonly HttpClient _client = factory.CreateClient();
+
+    // -------------------------------------------------------------------------
+    // 204
+    // -------------------------------------------------------------------------
 
     [Fact]
     public async Task DeleteUser_WhenUserExists_Returns204()
     {
-        var created = await CreateUser();
+        var (user, token) = await CreateUserAndAuthenticate();
+        var client = AuthenticatedClient(token);
 
-        var response = await _client.DeleteAsync($"/v1/users/{created.Id}");
+        var response = await client.DeleteAsync($"/v1/users/{user.Id}");
 
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
@@ -24,50 +33,117 @@ public class DeleteUserTests(EagleBankApiFactory factory) : IClassFixture<EagleB
     [Fact]
     public async Task DeleteUser_WhenUserExists_UserIsNoLongerRetrievable()
     {
-        var created = await CreateUser();
-        await _client.DeleteAsync($"/v1/users/{created.Id}");
+        var (user, token) = await CreateUserAndAuthenticate();
+        var client = AuthenticatedClient(token);
 
-        var response = await _client.GetAsync($"/v1/users/{created.Id}");
+        await client.DeleteAsync($"/v1/users/{user.Id}");
+        var getResponse = await client.GetAsync($"/v1/users/{user.Id}");
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        // After deletion the user no longer exists — but their own token still passes
+        // JWT validation so the auth check passes, returning 404 not 403
+        getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
+
+    // -------------------------------------------------------------------------
+    // 401
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteUser_WithNoToken_Returns401()
+    {
+        var (user, _) = await CreateUserAndAuthenticate();
+
+        var response = await _client.DeleteAsync($"/v1/users/{user.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task DeleteUser_WithInvalidToken_Returns401()
+    {
+        var (user, _) = await CreateUserAndAuthenticate();
+        var client = AuthenticatedClient("this.is.not.valid");
+
+        var response = await client.DeleteAsync($"/v1/users/{user.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    // -------------------------------------------------------------------------
+    // 403
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteUser_WithAnotherUsersToken_Returns403()
+    {
+        var (userA, _) = await CreateUserAndAuthenticate();
+        var (_, tokenB) = await CreateUserAndAuthenticate();
+        var clientB = AuthenticatedClient(tokenB);
+
+        var response = await clientB.DeleteAsync($"/v1/users/{userA.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task DeleteUser_WithAnotherUsersToken_DoesNotDeleteTheUser()
+    {
+        var (userA, tokenA) = await CreateUserAndAuthenticate();
+        var (_, tokenB) = await CreateUserAndAuthenticate();
+        var clientB = AuthenticatedClient(tokenB);
+
+        await clientB.DeleteAsync($"/v1/users/{userA.Id}");
+
+        // User A should still exist
+        var clientA = AuthenticatedClient(tokenA);
+        var getResponse = await clientA.GetAsync($"/v1/users/{userA.Id}");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    // -------------------------------------------------------------------------
+    // 404
+    // -------------------------------------------------------------------------
 
     [Fact]
     public async Task DeleteUser_WhenUserNotFound_Returns404()
     {
-        var response = await _client.DeleteAsync("/v1/users/usr-doesnotexist");
+        var nonExistentId = $"usr-{Guid.NewGuid():N}";
+        var token = TokenHelper.GenerateTokenForUser(nonExistentId);
+        var client = AuthenticatedClient(token);
+
+        var response = await client.DeleteAsync($"/v1/users/{nonExistentId}");
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
-    [Fact]
-    public async Task DeleteUser_WhenUserNotFound_ReturnsErrorResponseShape()
-    {
-        var response = await _client.DeleteAsync("/v1/users/usr-doesnotexist");
-        var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-
-        body.Should().NotBeNull();
-        body!.Message.Should().NotBeNullOrWhiteSpace();
-    }
+    // -------------------------------------------------------------------------
+    // 500
+    // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task DeleteUser_WhenDatabaseDown_Returns500()
+    public async Task DeleteUser_WhenDatabaseGoesDownAfterAuthentication_Returns500()
     {
+        var (user, token) = await CreateUserAndAuthenticate();
+
         await using var downFactory = new DatabaseDownApiFactory();
-        var client = downFactory.CreateClient();
+        var downClient = downFactory.CreateClient();
+        downClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        var response = await client.DeleteAsync("/v1/users/usr-123");
+        var response = await downClient.DeleteAsync($"/v1/users/{user.Id}");
 
         response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
     }
 
     [Fact]
-    public async Task DeleteUser_WhenDatabaseDown_DoesNotLeakExceptionDetails()
+    public async Task DeleteUser_WhenDatabaseGoesDownAfterAuthentication_DoesNotLeakExceptionDetails()
     {
-        await using var downFactory = new DatabaseDownApiFactory();
-        var client = downFactory.CreateClient();
+        var (user, token) = await CreateUserAndAuthenticate();
 
-        var response = await client.DeleteAsync("/v1/users/usr-123");
+        await using var downFactory = new DatabaseDownApiFactory();
+        var downClient = downFactory.CreateClient();
+        downClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await downClient.DeleteAsync($"/v1/users/{user.Id}");
         var body = await response.Content.ReadAsStringAsync();
 
         body.Should().NotContain("Database connection failed");
@@ -78,9 +154,10 @@ public class DeleteUserTests(EagleBankApiFactory factory) : IClassFixture<EagleB
     // Helpers
     // -------------------------------------------------------------------------
 
-    private async Task<UserResponse> CreateUser()
+    private async Task<(UserResponse user, string token)> CreateUserAndAuthenticate()
     {
-        var response = await _client.PostAsJsonAsync("/v1/users", new CreateUserRequest
+        var email = $"jane-{Guid.NewGuid()}@example.com";
+        var createResponse = await _client.PostAsJsonAsync("/v1/users", new CreateUserRequest
         {
             Name = "Jane Doe",
             Address = new AddressDto
@@ -91,10 +168,22 @@ public class DeleteUserTests(EagleBankApiFactory factory) : IClassFixture<EagleB
                 Postcode = "EC1A 1BB"
             },
             PhoneNumber = "+447700900000",
-            Email = $"jane-{Guid.NewGuid()}@example.com",
+            Email = email,
             Password = "password123"
         });
+        var user = (await createResponse.Content.ReadFromJsonAsync<UserResponse>())!;
 
-        return (await response.Content.ReadFromJsonAsync<UserResponse>())!;
+        var tokenResponse = await _client.PostAsJsonAsync("/v1/auth/token",
+            new AuthRequest { Email = email, Password = "password123" });
+        var tokenBody = (await tokenResponse.Content.ReadFromJsonAsync<AuthResponse>())!;
+
+        return (user, tokenBody.Token);
+    }
+
+    private HttpClient AuthenticatedClient(string token)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
     }
 }

@@ -10,5 +10,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>().OwnsOne(u => u.Address);
+        modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
     }
 }

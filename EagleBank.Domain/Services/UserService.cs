@@ -1,4 +1,5 @@
 using EagleBank.Domain.DTOs;
+using EagleBank.Domain.Exceptions;
 using EagleBank.Domain.Interfaces;
 using EagleBank.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -13,6 +14,13 @@ public class UserService(
     public async Task<UserDto> CreateUserAsync(string name, Address address, string phoneNumber, string email, string password)
     {
         logger.LogInformation("Creating new user");
+
+        var existing = await userRepository.GetByEmailAsync(email);
+        if (existing is not null)
+        {
+            logger.LogWarning("User creation failed - email already registered");
+            throw new DuplicateEmailException();
+        }
 
         var user = new User
         {

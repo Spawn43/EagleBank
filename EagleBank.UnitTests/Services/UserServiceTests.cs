@@ -1,3 +1,4 @@
+using EagleBank.Domain.Exceptions;
 using EagleBank.Domain.Interfaces;
 using EagleBank.Domain.Models;
 using EagleBank.Domain.Services;
@@ -58,6 +59,27 @@ public class UserServiceTests
 
         result.CreatedTimestamp.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
         result.UpdatedTimestamp.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
+    }
+
+    [Fact]
+    public async Task CreateUserAsync_WithDuplicateEmail_ThrowsDuplicateEmailException()
+    {
+        _repository.GetByEmailAsync("jane@example.com").Returns(BuildUser());
+
+        var act = () => _sut.CreateUserAsync("Jane Doe", BuildAddress(), "+447700900000", "jane@example.com", "password123");
+
+        await act.Should().ThrowAsync<DuplicateEmailException>();
+    }
+
+    [Fact]
+    public async Task CreateUserAsync_WithDuplicateEmail_DoesNotCallRepository()
+    {
+        _repository.GetByEmailAsync("jane@example.com").Returns(BuildUser());
+
+        try { await _sut.CreateUserAsync("Jane Doe", BuildAddress(), "+447700900000", "jane@example.com", "password123"); }
+        catch (DuplicateEmailException) { }
+
+        await _repository.DidNotReceive().CreateAsync(Arg.Any<User>());
     }
 
     [Fact]

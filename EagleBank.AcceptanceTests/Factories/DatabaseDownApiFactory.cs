@@ -29,6 +29,7 @@ file class AlwaysThrowingUserRepository : IUserRepository
 
     public Task<User> CreateAsync(User user) => throw new Exception(Message);
     public Task<User?> GetByIdAsync(string id) => throw new Exception(Message);
+    public Task<User?> GetByEmailAsync(string email) => throw new Exception(Message);
     public Task<User> UpdateAsync(User user) => throw new Exception(Message);
     public Task DeleteAsync(User user) => throw new Exception(Message);
 }

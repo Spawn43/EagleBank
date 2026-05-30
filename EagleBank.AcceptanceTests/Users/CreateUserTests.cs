@@ -68,6 +68,56 @@ public class CreateUserTests(EagleBankApiFactory factory) : IClassFixture<EagleB
     }
 
     // -------------------------------------------------------------------------
+    // 409
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task CreateUser_WithDuplicateEmail_Returns409()
+    {
+        var email = $"duplicate-{Guid.NewGuid()}@example.com";
+        var first = ValidRequest();
+        first.Email = email;
+        await _client.PostAsJsonAsync("/v1/users", first);
+
+        var second = ValidRequest();
+        second.Email = email;
+        var response = await _client.PostAsJsonAsync("/v1/users", second);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task CreateUser_WithDuplicateEmail_ReturnsErrorResponseShape()
+    {
+        var email = $"duplicate-{Guid.NewGuid()}@example.com";
+        var first = ValidRequest();
+        first.Email = email;
+        await _client.PostAsJsonAsync("/v1/users", first);
+
+        var second = ValidRequest();
+        second.Email = email;
+        var response = await _client.PostAsJsonAsync("/v1/users", second);
+        var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+
+        body.Should().NotBeNull();
+        body!.Message.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task CreateUser_SameName_DifferentEmail_Returns201()
+    {
+        var first = ValidRequest();
+        first.Name = "Jane Doe";
+        await _client.PostAsJsonAsync("/v1/users", first);
+
+        var second = ValidRequest();
+        second.Name = "Jane Doe";
+        var response = await _client.PostAsJsonAsync("/v1/users", second);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+    }
+
+    // -------------------------------------------------------------------------
     // 400
     // -------------------------------------------------------------------------
 
@@ -299,7 +349,7 @@ public class CreateUserTests(EagleBankApiFactory factory) : IClassFixture<EagleB
             Postcode = "EC1A 1BB"
         },
         PhoneNumber = "+447700900000",
-        Email = "jane@example.com",
+        Email = $"jane-{Guid.NewGuid()}@example.com",
         Password = "password123"
     };
 
