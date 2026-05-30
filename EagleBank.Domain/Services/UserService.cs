@@ -34,11 +34,23 @@ public class UserService(
             UpdatedTimestamp = DateTime.UtcNow
         };
 
-        var created = await userRepository.CreateAsync(user);
+        try
+        {
+            var created = await userRepository.CreateAsync(user);
 
-        logger.LogInformation("User created successfully {UserId}", created.Id);
+            logger.LogInformation("User created successfully {UserId}", created.Id);
 
-        return ToDto(created);
+            return ToDto(created);
+        }
+        catch (Exception ex) when (ex.Message.Contains("unique", StringComparison.OrdinalIgnoreCase)
+                                   || ex.GetType().Name.Contains("DbUpdate"))
+        {
+            // Two concurrent requests can both pass the GetByEmailAsync check above
+            // before either write completes. The DB unique index catches the race;
+            // we convert it to the same DuplicateEmailException so callers get 409.
+            logger.LogWarning("User creation failed - duplicate email detected at DB level");
+            throw new DuplicateEmailException();
+        }
     }
 
     public async Task<UserDto?> GetUserAsync(string id)
@@ -70,10 +82,19 @@ public class UserService(
             throw new KeyNotFoundException($"User {id} not found");
         }
 
-        if (name is not null) user.Name = name;
+        if (!string.IsNullOrEmpty(name)) user.Name = name;
         if (address is not null) user.Address = address;
-        if (phoneNumber is not null) user.PhoneNumber = phoneNumber;
-        if (email is not null) user.Email = email;
+        if (!string.IsNullOrEmpty(phoneNumber)) user.PhoneNumber = phoneNumber;
+        if (!string.IsNullOrEmpty(email) && email != user.Email)
+        {
+            var existing = await userRepository.GetByEmailAsync(email);
+            if (existing is not null)
+            {
+                logger.LogWarning("Update failed - email already registered");
+                throw new DuplicateEmailException();
+            }
+            user.Email = email;
+        }
         user.UpdatedTimestamp = DateTime.UtcNow;
 
         var updated = await userRepository.UpdateAsync(user);

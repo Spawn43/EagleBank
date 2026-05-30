@@ -94,6 +94,11 @@ public class UsersController(IUserService userService, ILogger<UsersController> 
 
             return Ok(user.ToResponse());
         }
+        catch (DuplicateEmailException)
+        {
+            logger.LogInformation("Returning 409 - email already registered");
+            return StatusCode(409, new ErrorResponse { Message = "A user with this email address already exists" });
+        }
         catch (KeyNotFoundException)
         {
             logger.LogInformation("Returning 404 for user {UserId}", userId);

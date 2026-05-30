@@ -1,3 +1,4 @@
+using EagleBank.Domain.Exceptions;
 using EagleBank.Domain.Interfaces;
 using EagleBank.Domain.Models;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +10,16 @@ public class UserRepository(AppDbContext context) : IUserRepository
     public async Task<User> CreateAsync(User user)
     {
         context.Users.Add(user);
-        await context.SaveChangesAsync();
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // Unique index on Email was violated — two concurrent registrations
+            // raced past the application-level check in UserService.
+            throw new DuplicateEmailException();
+        }
         return user;
     }
 

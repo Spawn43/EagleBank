@@ -14,6 +14,18 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configuration is resolved in order: appsettings.json → appsettings.{Environment}.json
+// → environment variables → any additional providers registered below.
+// To read secrets from AWS Parameter Store instead of appsettings, add:
+//
+//   builder.Configuration.AddSystemsManager("/EagleBank/");   // requires AWSSDK.Extensions.NETCore.Setup
+//
+// Parameter Store keys map directly to IConfiguration keys, e.g.:
+//   /EagleBank/JwtSettings/Secret       → JwtSettings:Secret
+//   /EagleBank/ConnectionStrings/DefaultConnection → ConnectionStrings:DefaultConnection
+//
+// No other code needs to change — all reads below use IConfiguration.
+
 builder.Services.AddControllers()
     .ConfigureApiBehaviorOptions(options =>
     {
@@ -86,9 +98,9 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
-app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseHttpsRedirection();
 app.UseAuthentication();
