@@ -12,254 +12,257 @@ using FluentAssertions;
 
 namespace EagleBank.AcceptanceTests.Users;
 
-public class UpdateUserTests(EagleBankApiFactory factory) : IClassFixture<EagleBankApiFactory>
+[TestFixture]
+public class UpdateUserTests
 {
-    private readonly EagleBankApiFactory _factory = factory;
-    private readonly HttpClient _client = factory.CreateClient();
+    private EagleBankApiFactory _factory = null!;
+    private HttpClient _client = null!;
 
-    // -------------------------------------------------------------------------
+    [OneTimeSetUp]
+    public void OneTimeSetUp()
+    {
+        _factory = new EagleBankApiFactory();
+        _client = _factory.CreateClient();
+    }
+
+    [OneTimeTearDown]
+    public async Task OneTimeTearDown()
+    {
+        await _factory.DisposeAsync();
+    }
+
     // 200
-    // -------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public async Task UpdateUser_WithValidRequest_Returns200()
     {
+        // Arrange
         var (user, token) = await CreateUserAndAuthenticate();
         var client = AuthenticatedClient(token);
+        var request = new UpdateUserRequest { Name = "Updated Name" };
 
-        var response = await client.PatchAsJsonAsync($"/v1/users/{user.Id}", new UpdateUserRequest
-        {
-            Name = "Updated Name"
-        });
+        // Act
+        var response = await client.PatchAsJsonAsync($"/v1/users/{user.Id}", request);
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
-    [Fact]
+    [Test]
     public async Task UpdateUser_WithValidRequest_ReturnsUpdatedFields()
     {
+        // Arrange
         var (user, token) = await CreateUserAndAuthenticate();
         var client = AuthenticatedClient(token);
+        var request = new UpdateUserRequest { Name = "Updated Name" };
 
-        var response = await client.PatchAsJsonAsync($"/v1/users/{user.Id}", new UpdateUserRequest
-        {
-            Name = "Updated Name"
-        });
+        // Act
+        var response = await client.PatchAsJsonAsync($"/v1/users/{user.Id}", request);
         var body = await response.Content.ReadFromJsonAsync<UserResponse>();
 
+        // Assert
         body!.Name.Should().Be("Updated Name");
         body.Email.Should().Be(user.Email);
     }
 
-    // -------------------------------------------------------------------------
     // 400
-    // -------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public async Task UpdateUser_WithInvalidPhoneFormat_Returns400WithDetails()
     {
+        // Arrange
         var (user, token) = await CreateUserAndAuthenticate();
         var client = AuthenticatedClient(token);
+        var body = JsonBody(new { phoneNumber = "07700900000" });
 
-        var response = await client.PatchAsync($"/v1/users/{user.Id}",
-            JsonBody(new { phoneNumber = "07700900000" }));
+        // Act
+        var response = await client.PatchAsync($"/v1/users/{user.Id}", body);
+        var responseBody = await response.Content.ReadFromJsonAsync<BadRequestErrorResponse>();
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        var body = await response.Content.ReadFromJsonAsync<BadRequestErrorResponse>();
-        body!.Message.Should().NotBeNullOrWhiteSpace();
-        body.Details.Should().NotBeEmpty();
-        body.Details.Should().AllSatisfy(d =>
+        responseBody!.Message.Should().NotBeNullOrWhiteSpace();
+        responseBody.Details.Should().NotBeEmpty();
+        responseBody.Details.Should().AllSatisfy(d =>
         {
             d.Field.Should().NotBeNullOrWhiteSpace();
             d.Message.Should().NotBeNullOrWhiteSpace();
             d.Type.Should().Be("validation_error");
         });
-        body.Details.Should().Contain(d => d.Field.Contains("PhoneNumber", StringComparison.OrdinalIgnoreCase));
+        responseBody.Details.Should().Contain(d => d.Field.Contains("PhoneNumber", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
+    [Test]
     public async Task UpdateUser_WithInvalidEmailFormat_Returns400WithDetails()
     {
+        // Arrange
         var (user, token) = await CreateUserAndAuthenticate();
         var client = AuthenticatedClient(token);
+        var body = JsonBody(new { email = "not-an-email" });
 
-        var response = await client.PatchAsync($"/v1/users/{user.Id}",
-            JsonBody(new { email = "not-an-email" }));
+        // Act
+        var response = await client.PatchAsync($"/v1/users/{user.Id}", body);
+        var responseBody = await response.Content.ReadFromJsonAsync<BadRequestErrorResponse>();
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        var body = await response.Content.ReadFromJsonAsync<BadRequestErrorResponse>();
-        body!.Details.Should().Contain(d => d.Field.Contains("Email", StringComparison.OrdinalIgnoreCase));
+        responseBody!.Details.Should().Contain(d => d.Field.Contains("Email", StringComparison.OrdinalIgnoreCase));
     }
 
-    // -------------------------------------------------------------------------
     // 409
-    // -------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public async Task UpdateUser_WithEmailAlreadyTakenByAnotherUser_Returns409()
     {
+        // Arrange
         var (userA, tokenA) = await CreateUserAndAuthenticate();
         var (userB, _) = await CreateUserAndAuthenticate();
         var clientA = AuthenticatedClient(tokenA);
+        var request = new UpdateUserRequest { Email = userB.Email };
 
-        var response = await clientA.PatchAsJsonAsync($"/v1/users/{userA.Id}", new UpdateUserRequest
-        {
-            Email = userB.Email
-        });
+        // Act
+        var response = await clientA.PatchAsJsonAsync($"/v1/users/{userA.Id}", request);
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
-    [Fact]
+    [Test]
     public async Task UpdateUser_WithSameEmail_Returns200()
     {
+        // Arrange
         var (user, token) = await CreateUserAndAuthenticate();
         var client = AuthenticatedClient(token);
+        var request = new UpdateUserRequest { Email = user.Email };
 
-        var response = await client.PatchAsJsonAsync($"/v1/users/{user.Id}", new UpdateUserRequest
-        {
-            Email = user.Email
-        });
+        // Act
+        var response = await client.PatchAsJsonAsync($"/v1/users/{user.Id}", request);
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
-    // -------------------------------------------------------------------------
     // 401
-    // -------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public async Task UpdateUser_WithNoToken_Returns401()
     {
+        // Arrange
         var (user, _) = await CreateUserAndAuthenticate();
+        var request = new UpdateUserRequest { Name = "Updated Name" };
 
-        var response = await _client.PatchAsJsonAsync($"/v1/users/{user.Id}", new UpdateUserRequest
-        {
-            Name = "Updated Name"
-        });
+        // Act
+        var response = await _client.PatchAsJsonAsync($"/v1/users/{user.Id}", request);
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    [Fact]
+    [Test]
     public async Task UpdateUser_WithInvalidToken_Returns401()
     {
+        // Arrange
         var (user, _) = await CreateUserAndAuthenticate();
         var client = AuthenticatedClient("this.is.not.valid");
+        var request = new UpdateUserRequest { Name = "Updated Name" };
 
-        var response = await client.PatchAsJsonAsync($"/v1/users/{user.Id}", new UpdateUserRequest
-        {
-            Name = "Updated Name"
-        });
+        // Act
+        var response = await client.PatchAsJsonAsync($"/v1/users/{user.Id}", request);
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    // -------------------------------------------------------------------------
     // 403
-    // -------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public async Task UpdateUser_WithAnotherUsersToken_Returns403()
     {
+        // Arrange
         var (userA, _) = await CreateUserAndAuthenticate();
         var (_, tokenB) = await CreateUserAndAuthenticate();
         var clientB = AuthenticatedClient(tokenB);
+        var request = new UpdateUserRequest { Name = "Malicious Update" };
 
-        var response = await clientB.PatchAsJsonAsync($"/v1/users/{userA.Id}", new UpdateUserRequest
-        {
-            Name = "Malicious Update"
-        });
+        // Act
+        var response = await clientB.PatchAsJsonAsync($"/v1/users/{userA.Id}", request);
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
-    // -------------------------------------------------------------------------
     // 404
-    // -------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public async Task UpdateUser_WhenUserNotFound_Returns404()
     {
+        // Arrange
         var nonExistentId = $"usr-{Guid.NewGuid():N}";
         var token = TokenHelper.GenerateTokenForUser(nonExistentId);
         var client = AuthenticatedClient(token);
+        var request = new UpdateUserRequest { Name = "Updated Name" };
 
-        var response = await client.PatchAsJsonAsync($"/v1/users/{nonExistentId}", new UpdateUserRequest
-        {
-            Name = "Updated Name"
-        });
+        // Act
+        var response = await client.PatchAsJsonAsync($"/v1/users/{nonExistentId}", request);
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
-    // -------------------------------------------------------------------------
     // 500
-    // -------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public async Task UpdateUser_WhenDatabaseGoesDownAfterAuthentication_Returns500()
     {
+        // Arrange
         var (user, token) = await CreateUserAndAuthenticate();
-
         await using var downFactory = new DatabaseDownApiFactory();
         var downClient = downFactory.CreateClient();
         downClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var request = new UpdateUserRequest { Name = "Updated Name" };
 
-        var response = await downClient.PatchAsJsonAsync($"/v1/users/{user.Id}", new UpdateUserRequest
-        {
-            Name = "Updated Name"
-        });
+        // Act
+        var response = await downClient.PatchAsJsonAsync($"/v1/users/{user.Id}", request);
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
     }
 
-    [Fact]
+    [Test]
     public async Task UpdateUser_WhenDatabaseGoesDownAfterAuthentication_DoesNotLeakExceptionDetails()
     {
+        // Arrange
         var (user, token) = await CreateUserAndAuthenticate();
-
         await using var downFactory = new DatabaseDownApiFactory();
         var downClient = downFactory.CreateClient();
         downClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var request = new UpdateUserRequest { Name = "Updated Name" };
 
-        var response = await downClient.PatchAsJsonAsync($"/v1/users/{user.Id}", new UpdateUserRequest
-        {
-            Name = "Updated Name"
-        });
+        // Act
+        var response = await downClient.PatchAsJsonAsync($"/v1/users/{user.Id}", request);
         var body = await response.Content.ReadAsStringAsync();
 
+        // Assert
         body.Should().NotContain("Database connection failed");
         body.Should().NotContain("StackTrace");
     }
 
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
-
     private async Task<(UserResponse user, string token)> CreateUserAndAuthenticate()
     {
         var email = $"jane-{Guid.NewGuid()}@example.com";
-        var createResponse = await _client.PostAsJsonAsync("/v1/users", new CreateUserRequest
+        var createRequest = new CreateUserRequest
         {
             Name = "Jane Doe",
-            Address = new AddressDto
-            {
-                Line1 = "123 Test Street",
-                Town = "London",
-                County = "Greater London",
-                Postcode = "EC1A 1BB"
-            },
+            Address = new AddressDto { Line1 = "123 Test Street", Town = "London", County = "Greater London", Postcode = "EC1A 1BB" },
             PhoneNumber = "+447700900000",
             Email = email,
             Password = "password123"
-        });
+        };
+        var createResponse = await _client.PostAsJsonAsync("/v1/users", createRequest);
         var user = (await createResponse.Content.ReadFromJsonAsync<UserResponse>())!;
 
-        var tokenResponse = await _client.PostAsJsonAsync("/v1/auth/token",
-            new AuthRequest { Email = email, Password = "password123" });
+        var tokenRequest = new AuthRequest { Email = email, Password = "password123" };
+        var tokenResponse = await _client.PostAsJsonAsync("/v1/auth/token", tokenRequest);
         var tokenBody = (await tokenResponse.Content.ReadFromJsonAsync<AuthResponse>())!;
 
         return (user, tokenBody.Token);

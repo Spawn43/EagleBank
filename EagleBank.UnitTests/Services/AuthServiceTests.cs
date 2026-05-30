@@ -9,114 +9,136 @@ using NSubstitute.ExceptionExtensions;
 
 namespace EagleBank.UnitTests.Services;
 
+[TestFixture]
 public class AuthServiceTests
 {
-    private readonly IUserRepository _repository = Substitute.For<IUserRepository>();
-    private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
-    private readonly ITokenGenerator _tokenGenerator = Substitute.For<ITokenGenerator>();
-    private readonly AuthService _sut;
+    private IUserRepository _repository = null!;
+    private IPasswordHasher _passwordHasher = null!;
+    private ITokenGenerator _tokenGenerator = null!;
+    private AuthService _sut = null!;
 
-    public AuthServiceTests()
+    [SetUp]
+    public void SetUp()
     {
+        _repository = Substitute.For<IUserRepository>();
+        _passwordHasher = Substitute.For<IPasswordHasher>();
+        _tokenGenerator = Substitute.For<ITokenGenerator>();
         _tokenGenerator.GenerateToken(Arg.Any<UserDto>()).Returns("test.jwt.token");
         _sut = new AuthService(_repository, _passwordHasher, _tokenGenerator, NullLogger<AuthService>.Instance);
     }
 
-    [Fact]
+    [Test]
     public async Task AuthenticateAsync_WithValidCredentials_ReturnsAuthDto()
     {
+        // Arrange
         var user = BuildUser();
         _repository.GetByEmailAsync(user.Email).Returns(user);
         _passwordHasher.Verify("password123", user.PasswordHash).Returns(true);
 
+        // Act
         var result = await _sut.AuthenticateAsync(user.Email, "password123");
 
+        // Assert
         result.Should().NotBeNull();
         result!.Token.Should().Be("test.jwt.token");
     }
 
-    [Fact]
+    [Test]
     public async Task AuthenticateAsync_WithValidCredentials_CallsGenerateToken()
     {
+        // Arrange
         var user = BuildUser();
         _repository.GetByEmailAsync(user.Email).Returns(user);
         _passwordHasher.Verify("password123", user.PasswordHash).Returns(true);
 
+        // Act
         await _sut.AuthenticateAsync(user.Email, "password123");
 
+        // Assert
         _tokenGenerator.Received(1).GenerateToken(Arg.Is<UserDto>(dto => dto.Id == user.Id));
     }
 
-    [Fact]
+    [Test]
     public async Task AuthenticateAsync_WithUnknownEmail_ReturnsNull()
     {
+        // Arrange
         _repository.GetByEmailAsync(Arg.Any<string>()).Returns((User?)null);
 
+        // Act
         var result = await _sut.AuthenticateAsync("unknown@example.com", "password123");
 
+        // Assert
         result.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public async Task AuthenticateAsync_WithWrongPassword_ReturnsNull()
     {
+        // Arrange
         var user = BuildUser();
         _repository.GetByEmailAsync(user.Email).Returns(user);
         _passwordHasher.Verify("wrongpassword", user.PasswordHash).Returns(false);
 
+        // Act
         var result = await _sut.AuthenticateAsync(user.Email, "wrongpassword");
 
+        // Assert
         result.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public async Task AuthenticateAsync_WithUnknownEmail_DoesNotCallGenerateToken()
     {
+        // Arrange
         _repository.GetByEmailAsync(Arg.Any<string>()).Returns((User?)null);
 
+        // Act
         await _sut.AuthenticateAsync("unknown@example.com", "password123");
 
+        // Assert
         _tokenGenerator.DidNotReceive().GenerateToken(Arg.Any<UserDto>());
     }
 
-    [Fact]
-    public async Task AuthenticateAsync_WithUnknownEmail_StillCallsPasswordVerify()
-    {
-        // BCrypt must run on both the "user not found" and "wrong password" paths
-        // so response times are indistinguishable and email existence can't be inferred
-        // by measuring how long the request takes.
-        _repository.GetByEmailAsync(Arg.Any<string>()).Returns((User?)null);
-
-        await _sut.AuthenticateAsync("unknown@example.com", "password123");
-
-        _passwordHasher.Received(1).Verify(Arg.Any<string>(), Arg.Any<string>());
-    }
-
-    [Fact]
+    [Test]
     public async Task AuthenticateAsync_WithWrongPassword_DoesNotCallGenerateToken()
     {
+        // Arrange
         var user = BuildUser();
         _repository.GetByEmailAsync(user.Email).Returns(user);
         _passwordHasher.Verify(Arg.Any<string>(), Arg.Any<string>()).Returns(false);
 
+        // Act
         await _sut.AuthenticateAsync(user.Email, "wrongpassword");
 
+        // Assert
         _tokenGenerator.DidNotReceive().GenerateToken(Arg.Any<UserDto>());
     }
 
-    [Fact]
-    public async Task AuthenticateAsync_WhenDatabaseDown_PropagatesException()
+    [Test]
+    public async Task AuthenticateAsync_WithUnknownEmail_StillCallsPasswordVerify()
     {
-        _repository.GetByEmailAsync(Arg.Any<string>()).ThrowsAsync(new Exception("Database connection failed"));
+        // Arrange
+        _repository.GetByEmailAsync(Arg.Any<string>()).Returns((User?)null);
 
-        var act = () => _sut.AuthenticateAsync("jane@example.com", "password123");
+        // Act
+        await _sut.AuthenticateAsync("unknown@example.com", "password123");
 
-        await act.Should().ThrowAsync<Exception>().WithMessage("Database connection failed");
+        // Assert
+        _passwordHasher.Received(1).Verify(Arg.Any<string>(), Arg.Any<string>());
     }
 
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
+    [Test]
+    public async Task AuthenticateAsync_WhenDatabaseDown_PropagatesException()
+    {
+        // Arrange
+        _repository.GetByEmailAsync(Arg.Any<string>()).ThrowsAsync(new Exception("Database connection failed"));
+
+        // Act
+        var act = () => _sut.AuthenticateAsync("jane@example.com", "password123");
+
+        // Assert
+        await act.Should().ThrowAsync<Exception>().WithMessage("Database connection failed");
+    }
 
     private static User BuildUser() => new()
     {

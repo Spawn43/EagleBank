@@ -10,194 +10,206 @@ using FluentAssertions;
 
 namespace EagleBank.AcceptanceTests.Auth;
 
-public class AuthTests(EagleBankApiFactory factory) : IClassFixture<EagleBankApiFactory>
+[TestFixture]
+public class AuthTests
 {
-    private readonly HttpClient _client = factory.CreateClient();
+    private EagleBankApiFactory _factory = null!;
+    private HttpClient _client = null!;
 
-    // -------------------------------------------------------------------------
+    [OneTimeSetUp]
+    public void OneTimeSetUp()
+    {
+        _factory = new EagleBankApiFactory();
+        _client = _factory.CreateClient();
+    }
+
+    [OneTimeTearDown]
+    public async Task OneTimeTearDown()
+    {
+        await _factory.DisposeAsync();
+    }
+
     // 200
-    // -------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public async Task Token_WithValidCredentials_Returns200()
     {
+        // Arrange
         var email = await CreateUser();
+        var request = new AuthRequest { Email = email, Password = "password123" };
 
-        var response = await _client.PostAsJsonAsync("/v1/auth/token", new AuthRequest
-        {
-            Email = email,
-            Password = "password123"
-        });
+        // Act
+        var response = await _client.PostAsJsonAsync("/v1/auth/token", request);
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
-    [Fact]
+    [Test]
     public async Task Token_WithValidCredentials_ReturnsNonEmptyToken()
     {
+        // Arrange
         var email = await CreateUser();
+        var request = new AuthRequest { Email = email, Password = "password123" };
 
-        var response = await _client.PostAsJsonAsync("/v1/auth/token", new AuthRequest
-        {
-            Email = email,
-            Password = "password123"
-        });
-
+        // Act
+        var response = await _client.PostAsJsonAsync("/v1/auth/token", request);
         var body = await response.Content.ReadFromJsonAsync<AuthResponse>();
+
+        // Assert
         body.Should().NotBeNull();
         body!.Token.Should().NotBeNullOrWhiteSpace();
     }
 
-    [Fact]
+    [Test]
     public async Task Token_WithValidCredentials_ReturnsValidJwtFormat()
     {
+        // Arrange
         var email = await CreateUser();
+        var request = new AuthRequest { Email = email, Password = "password123" };
 
-        var response = await _client.PostAsJsonAsync("/v1/auth/token", new AuthRequest
-        {
-            Email = email,
-            Password = "password123"
-        });
-
+        // Act
+        var response = await _client.PostAsJsonAsync("/v1/auth/token", request);
         var body = await response.Content.ReadFromJsonAsync<AuthResponse>();
-        // JWT format: three base64 segments separated by dots
+
+        // Assert
         body!.Token.Split('.').Should().HaveCount(3);
     }
 
-    // -------------------------------------------------------------------------
     // 400
-    // -------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public async Task Token_WithMissingEmail_Returns400WithDetails()
     {
-        var response = await _client.PostAsync("/v1/auth/token",
-            JsonBody(new { password = "password123" }));
+        // Arrange
+        var body = JsonBody(new { password = "password123" });
 
+        // Act
+        var response = await _client.PostAsync("/v1/auth/token", body);
+        var responseBody = await response.Content.ReadFromJsonAsync<BadRequestErrorResponse>();
+
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        var body = await response.Content.ReadFromJsonAsync<BadRequestErrorResponse>();
-        body!.Message.Should().NotBeNullOrWhiteSpace();
-        body.Details.Should().NotBeEmpty();
-        body.Details.Should().Contain(d => d.Field.Contains("Email", StringComparison.OrdinalIgnoreCase));
+        responseBody!.Message.Should().NotBeNullOrWhiteSpace();
+        responseBody.Details.Should().NotBeEmpty();
+        responseBody.Details.Should().Contain(d => d.Field.Contains("Email", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
+    [Test]
     public async Task Token_WithMissingPassword_Returns400WithDetails()
     {
-        var response = await _client.PostAsync("/v1/auth/token",
-            JsonBody(new { email = "jane@example.com" }));
+        // Arrange
+        var body = JsonBody(new { email = "jane@example.com" });
 
+        // Act
+        var response = await _client.PostAsync("/v1/auth/token", body);
+        var responseBody = await response.Content.ReadFromJsonAsync<BadRequestErrorResponse>();
+
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        var body = await response.Content.ReadFromJsonAsync<BadRequestErrorResponse>();
-        body!.Details.Should().Contain(d => d.Field.Contains("Password", StringComparison.OrdinalIgnoreCase));
+        responseBody!.Details.Should().Contain(d => d.Field.Contains("Password", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
+    [Test]
     public async Task Token_WithInvalidEmailFormat_Returns400WithDetails()
     {
-        var response = await _client.PostAsync("/v1/auth/token",
-            JsonBody(new { email = "not-an-email", password = "password123" }));
+        // Arrange
+        var body = JsonBody(new { email = "not-an-email", password = "password123" });
 
+        // Act
+        var response = await _client.PostAsync("/v1/auth/token", body);
+        var responseBody = await response.Content.ReadFromJsonAsync<BadRequestErrorResponse>();
+
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        var body = await response.Content.ReadFromJsonAsync<BadRequestErrorResponse>();
-        body!.Details.Should().Contain(d => d.Field.Contains("Email", StringComparison.OrdinalIgnoreCase));
+        responseBody!.Details.Should().Contain(d => d.Field.Contains("Email", StringComparison.OrdinalIgnoreCase));
     }
 
-    // -------------------------------------------------------------------------
     // 401
-    // -------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public async Task Token_WithWrongPassword_Returns401()
     {
+        // Arrange
         var email = await CreateUser();
+        var request = new AuthRequest { Email = email, Password = "wrongpassword" };
 
-        var response = await _client.PostAsJsonAsync("/v1/auth/token", new AuthRequest
-        {
-            Email = email,
-            Password = "wrongpassword"
-        });
+        // Act
+        var response = await _client.PostAsJsonAsync("/v1/auth/token", request);
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    [Fact]
+    [Test]
     public async Task Token_WithUnknownEmail_Returns401()
     {
-        var response = await _client.PostAsJsonAsync("/v1/auth/token", new AuthRequest
-        {
-            Email = "nobody@example.com",
-            Password = "password123"
-        });
+        // Arrange
+        var request = new AuthRequest { Email = "nobody@example.com", Password = "password123" };
 
+        // Act
+        var response = await _client.PostAsJsonAsync("/v1/auth/token", request);
+
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    [Fact]
+    [Test]
     public async Task Token_WithWrongPassword_AndUnknownEmail_ReturnSameMessage()
     {
-        // Prevents user enumeration — attacker cannot distinguish
-        // between "email doesn't exist" and "wrong password"
+        // Arrange
         var email = await CreateUser();
+        var wrongPasswordRequest = new AuthRequest { Email = email, Password = "wrongpassword" };
+        var unknownEmailRequest = new AuthRequest { Email = "nobody@example.com", Password = "password123" };
 
-        var wrongPasswordResponse = await _client.PostAsJsonAsync("/v1/auth/token",
-            new AuthRequest { Email = email, Password = "wrongpassword" });
-        var unknownEmailResponse = await _client.PostAsJsonAsync("/v1/auth/token",
-            new AuthRequest { Email = "nobody@example.com", Password = "password123" });
-
+        // Act
+        var wrongPasswordResponse = await _client.PostAsJsonAsync("/v1/auth/token", wrongPasswordRequest);
+        var unknownEmailResponse = await _client.PostAsJsonAsync("/v1/auth/token", unknownEmailRequest);
         var wrongPasswordBody = await wrongPasswordResponse.Content.ReadFromJsonAsync<ErrorResponse>();
         var unknownEmailBody = await unknownEmailResponse.Content.ReadFromJsonAsync<ErrorResponse>();
 
+        // Assert
         wrongPasswordBody!.Message.Should().Be(unknownEmailBody!.Message);
     }
 
-    // -------------------------------------------------------------------------
     // 500
-    // -------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public async Task Token_WhenDatabaseDown_Returns500()
     {
+        // Arrange
         await using var downFactory = new DatabaseDownApiFactory();
         var client = downFactory.CreateClient();
+        var request = new AuthRequest { Email = "jane@example.com", Password = "password123" };
 
-        var response = await client.PostAsJsonAsync("/v1/auth/token", new AuthRequest
-        {
-            Email = "jane@example.com",
-            Password = "password123"
-        });
+        // Act
+        var response = await client.PostAsJsonAsync("/v1/auth/token", request);
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
     }
 
-    [Fact]
+    [Test]
     public async Task Token_WhenDatabaseDown_DoesNotLeakExceptionDetails()
     {
+        // Arrange
         await using var downFactory = new DatabaseDownApiFactory();
         var client = downFactory.CreateClient();
+        var request = new AuthRequest { Email = "jane@example.com", Password = "password123" };
 
-        var response = await client.PostAsJsonAsync("/v1/auth/token", new AuthRequest
-        {
-            Email = "jane@example.com",
-            Password = "password123"
-        });
-
+        // Act
+        var response = await client.PostAsJsonAsync("/v1/auth/token", request);
         var body = await response.Content.ReadAsStringAsync();
+
+        // Assert
         body.Should().NotContain("Database connection failed");
         body.Should().NotContain("StackTrace");
     }
 
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
-
     private async Task<string> CreateUser()
     {
         var email = $"jane-{Guid.NewGuid()}@example.com";
-        await _client.PostAsJsonAsync("/v1/users", new CreateUserRequest
+        var request = new CreateUserRequest
         {
             Name = "Jane Doe",
             Address = new AddressDto
@@ -210,7 +222,8 @@ public class AuthTests(EagleBankApiFactory factory) : IClassFixture<EagleBankApi
             PhoneNumber = "+447700900000",
             Email = email,
             Password = "password123"
-        });
+        };
+        await _client.PostAsJsonAsync("/v1/users", request);
         return email;
     }
 
