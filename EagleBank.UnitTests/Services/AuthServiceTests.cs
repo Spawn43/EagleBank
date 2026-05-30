@@ -80,6 +80,19 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task AuthenticateAsync_WithUnknownEmail_StillCallsPasswordVerify()
+    {
+        // BCrypt must run on both the "user not found" and "wrong password" paths
+        // so response times are indistinguishable and email existence can't be inferred
+        // by measuring how long the request takes.
+        _repository.GetByEmailAsync(Arg.Any<string>()).Returns((User?)null);
+
+        await _sut.AuthenticateAsync("unknown@example.com", "password123");
+
+        _passwordHasher.Received(1).Verify(Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
     public async Task AuthenticateAsync_WithWrongPassword_DoesNotCallGenerateToken()
     {
         var user = BuildUser();

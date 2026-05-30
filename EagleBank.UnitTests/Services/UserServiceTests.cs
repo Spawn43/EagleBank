@@ -199,6 +199,54 @@ public class UserServiceTests
     }
 
     [Fact]
+    public async Task UpdateUserAsync_WithEmptyName_DoesNotOverwriteName()
+    {
+        var user = BuildUser(name: "Original Name");
+        _repository.GetByIdAsync(user.Id).Returns(user);
+        _repository.UpdateAsync(Arg.Any<User>()).Returns(x => x.Arg<User>());
+
+        var result = await _sut.UpdateUserAsync(user.Id, name: "", address: null, phoneNumber: null, email: null);
+
+        result.Name.Should().Be("Original Name");
+    }
+
+    [Fact]
+    public async Task UpdateUserAsync_WithEmptyEmail_DoesNotOverwriteEmail()
+    {
+        var user = BuildUser(email: "original@example.com");
+        _repository.GetByIdAsync(user.Id).Returns(user);
+        _repository.UpdateAsync(Arg.Any<User>()).Returns(x => x.Arg<User>());
+
+        var result = await _sut.UpdateUserAsync(user.Id, name: null, address: null, phoneNumber: null, email: "");
+
+        result.Email.Should().Be("original@example.com");
+    }
+
+    [Fact]
+    public async Task UpdateUserAsync_WithDuplicateEmail_ThrowsDuplicateEmailException()
+    {
+        var user = BuildUser(email: "original@example.com");
+        _repository.GetByIdAsync(user.Id).Returns(user);
+        _repository.GetByEmailAsync("taken@example.com").Returns(BuildUser(email: "taken@example.com"));
+
+        var act = () => _sut.UpdateUserAsync(user.Id, name: null, address: null, phoneNumber: null, email: "taken@example.com");
+
+        await act.Should().ThrowAsync<DuplicateEmailException>();
+    }
+
+    [Fact]
+    public async Task UpdateUserAsync_WithSameEmail_DoesNotCheckForDuplicate()
+    {
+        var user = BuildUser(email: "same@example.com");
+        _repository.GetByIdAsync(user.Id).Returns(user);
+        _repository.UpdateAsync(Arg.Any<User>()).Returns(x => x.Arg<User>());
+
+        await _sut.UpdateUserAsync(user.Id, name: null, address: null, phoneNumber: null, email: "same@example.com");
+
+        await _repository.DidNotReceive().GetByEmailAsync(Arg.Any<string>());
+    }
+
+    [Fact]
     public async Task UpdateUserAsync_UpdatesTimestamp()
     {
         var user = BuildUser();

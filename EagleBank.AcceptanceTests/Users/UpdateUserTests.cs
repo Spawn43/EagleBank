@@ -94,6 +94,39 @@ public class UpdateUserTests(EagleBankApiFactory factory) : IClassFixture<EagleB
     }
 
     // -------------------------------------------------------------------------
+    // 409
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task UpdateUser_WithEmailAlreadyTakenByAnotherUser_Returns409()
+    {
+        var (userA, tokenA) = await CreateUserAndAuthenticate();
+        var (userB, _) = await CreateUserAndAuthenticate();
+        var clientA = AuthenticatedClient(tokenA);
+
+        var response = await clientA.PatchAsJsonAsync($"/v1/users/{userA.Id}", new UpdateUserRequest
+        {
+            Email = userB.Email
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task UpdateUser_WithSameEmail_Returns200()
+    {
+        var (user, token) = await CreateUserAndAuthenticate();
+        var client = AuthenticatedClient(token);
+
+        var response = await client.PatchAsJsonAsync($"/v1/users/{user.Id}", new UpdateUserRequest
+        {
+            Email = user.Email
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    // -------------------------------------------------------------------------
     // 401
     // -------------------------------------------------------------------------
 
