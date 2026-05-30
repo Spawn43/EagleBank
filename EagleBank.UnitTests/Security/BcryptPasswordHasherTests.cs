@@ -77,27 +77,16 @@ public class BcryptPasswordHasherTests
         result.Should().BeTrue();
     }
 
-    [Test]
-    public void Verify_WithWrongPassword_ReturnsFalse()
+    [TestCase("wrongpassword")]
+    [TestCase("")]
+    [TestCase("different456")]
+    public void Verify_WithIncorrectPassword_ReturnsFalse(string wrongPassword)
     {
         // Arrange
         var hash = _sut.Hash("password123");
 
         // Act
-        var result = _sut.Verify("wrongpassword", hash);
-
-        // Assert
-        result.Should().BeFalse();
-    }
-
-    [Test]
-    public void Verify_WithEmptyPassword_ReturnsFalse()
-    {
-        // Arrange
-        var hash = _sut.Hash("password123");
-
-        // Act
-        var result = _sut.Verify("", hash);
+        var result = _sut.Verify(wrongPassword, hash);
 
         // Assert
         result.Should().BeFalse();
@@ -118,19 +107,6 @@ public class BcryptPasswordHasherTests
         hash1.Should().NotBe(hash2);
         result1.Should().BeTrue();
         result2.Should().BeTrue();
-    }
-
-    [Test]
-    public void Verify_PasswordDoesNotVerifyAgainstDifferentPasswordsHash()
-    {
-        // Arrange
-        var hash = _sut.Hash("password123");
-
-        // Act
-        var result = _sut.Verify("different456", hash);
-
-        // Assert
-        result.Should().BeFalse();
     }
 
     [TestCase("Password123")]
