@@ -27,4 +27,17 @@ public class BankAccountRepository(AppDbContext context) : IBankAccountRepositor
     {
         return await context.BankAccounts.Where(a => a.UserId == userId).ToListAsync();
     }
+
+    public async Task<BankAccount> UpdateAsync(BankAccount account)
+    {
+        context.BankAccounts.Update(account);
+        await context.SaveChangesAsync();
+        return account;
+    }
+
+    public async Task DeleteAsync(BankAccount account)
+    {
+        context.BankAccounts.Remove(account);
+        await context.SaveChangesAsync();
+    }
 }

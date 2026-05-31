@@ -88,5 +88,95 @@ public class AccountsController(IBankAccountService bankAccountService, ILogger<
         return Ok(account.ToResponse());
     }
 
+    [HttpPatch("{accountNumber}")]
+    public async Task<IActionResult> UpdateAccount(string accountNumber, [FromBody] UpdateBankAccountRequest request)
+    {
+        logger.LogInformation("Received update bank account request {AccountNumber}", accountNumber);
+
+        if (!Regex.IsMatch(accountNumber, @"^01\d{6}$"))
+        {
+            logger.LogWarning("Returning 400 - invalid account number format {AccountNumber}", accountNumber);
+            return BadRequest(new BadRequestErrorResponse
+            {
+                Message = "Invalid account number format",
+                Details =
+                [
+                    new ValidationErrorDetail
+                    {
+                        Field = "accountNumber",
+                        Message = "Account number must match the format 01XXXXXX",
+                        Type = "validation_error"
+                    }
+                ]
+            });
+        }
+
+        var userId = GetAuthenticatedUserId()!;
+
+        try
+        {
+            var account = await bankAccountService.UpdateAccountAsync(accountNumber, request.Name, request.AccountType, userId);
+
+            logger.LogInformation("Returning 200 for updated bank account {AccountNumber}", accountNumber);
+
+            return Ok(account.ToResponse());
+        }
+        catch (UnauthorizedAccessException)
+        {
+            logger.LogWarning("Returning 403 - user {UserId} attempted to update account {AccountNumber}", userId, accountNumber);
+            return StatusCode(403, new ErrorResponse { Message = "You are not authorised to access this bank account" });
+        }
+        catch (KeyNotFoundException)
+        {
+            logger.LogInformation("Returning 404 for bank account {AccountNumber}", accountNumber);
+            return NotFound(new ErrorResponse { Message = $"Bank account {accountNumber} not found" });
+        }
+    }
+
+    [HttpDelete("{accountNumber}")]
+    public async Task<IActionResult> DeleteAccount(string accountNumber)
+    {
+        logger.LogInformation("Received delete bank account request {AccountNumber}", accountNumber);
+
+        if (!Regex.IsMatch(accountNumber, @"^01\d{6}$"))
+        {
+            logger.LogWarning("Returning 400 - invalid account number format {AccountNumber}", accountNumber);
+            return BadRequest(new BadRequestErrorResponse
+            {
+                Message = "Invalid account number format",
+                Details =
+                [
+                    new ValidationErrorDetail
+                    {
+                        Field = "accountNumber",
+                        Message = "Account number must match the format 01XXXXXX",
+                        Type = "validation_error"
+                    }
+                ]
+            });
+        }
+
+        var userId = GetAuthenticatedUserId()!;
+
+        try
+        {
+            await bankAccountService.DeleteAccountAsync(accountNumber, userId);
+
+            logger.LogInformation("Returning 204 for deleted bank account {AccountNumber}", accountNumber);
+
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            logger.LogWarning("Returning 403 - user {UserId} attempted to delete account {AccountNumber}", userId, accountNumber);
+            return StatusCode(403, new ErrorResponse { Message = "You are not authorised to access this bank account" });
+        }
+        catch (KeyNotFoundException)
+        {
+            logger.LogInformation("Returning 404 for bank account {AccountNumber}", accountNumber);
+            return NotFound(new ErrorResponse { Message = $"Bank account {accountNumber} not found" });
+        }
+    }
+
     private string? GetAuthenticatedUserId() => User.FindFirstValue("sub");
 }

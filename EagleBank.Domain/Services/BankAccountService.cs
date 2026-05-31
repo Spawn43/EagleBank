@@ -85,6 +85,60 @@ public class BankAccountService(
         return ToDto(account);
     }
 
+    public async Task<BankAccountDto> UpdateAccountAsync(string accountNumber, string? name, AccountType? accountType, string authenticatedUserId)
+    {
+        logger.LogInformation("Updating bank account {AccountNumber} for user {UserId}", accountNumber, authenticatedUserId);
+
+        var account = await bankAccountRepository.GetByAccountNumberAsync(accountNumber);
+
+        if (account is null)
+        {
+            logger.LogWarning("Bank account {AccountNumber} not found", accountNumber);
+            throw new KeyNotFoundException($"Bank account {accountNumber} not found");
+        }
+
+        if (account.UserId != authenticatedUserId)
+        {
+            logger.LogWarning("User {UserId} attempted to update account {AccountNumber} owned by {OwnerId}",
+                authenticatedUserId, accountNumber, account.UserId);
+            throw new UnauthorizedAccessException();
+        }
+
+        if (name is not null) account.Name = name;
+        if (accountType is not null) account.AccountType = accountType.Value;
+        account.UpdatedTimestamp = DateTime.UtcNow;
+
+        var updated = await bankAccountRepository.UpdateAsync(account);
+
+        logger.LogInformation("Bank account {AccountNumber} updated successfully", accountNumber);
+
+        return ToDto(updated);
+    }
+
+    public async Task DeleteAccountAsync(string accountNumber, string authenticatedUserId)
+    {
+        logger.LogInformation("Deleting bank account {AccountNumber} for user {UserId}", accountNumber, authenticatedUserId);
+
+        var account = await bankAccountRepository.GetByAccountNumberAsync(accountNumber);
+
+        if (account is null)
+        {
+            logger.LogWarning("Bank account {AccountNumber} not found", accountNumber);
+            throw new KeyNotFoundException($"Bank account {accountNumber} not found");
+        }
+
+        if (account.UserId != authenticatedUserId)
+        {
+            logger.LogWarning("User {UserId} attempted to delete account {AccountNumber} owned by {OwnerId}",
+                authenticatedUserId, accountNumber, account.UserId);
+            throw new UnauthorizedAccessException();
+        }
+
+        await bankAccountRepository.DeleteAsync(account);
+
+        logger.LogInformation("Bank account {AccountNumber} deleted successfully", accountNumber);
+    }
+
     private static BankAccountDto ToDto(BankAccount account) => new(
         account.AccountNumber,
         account.SortCode,

@@ -223,6 +223,151 @@ public class BankAccountServiceTests
         await act.Should().ThrowAsync<Exception>().WithMessage("Database connection failed");
     }
 
+    // UpdateAccountAsync
+
+    [Test]
+    public async Task UpdateAccountAsync_WhenOwner_ReturnsUpdatedDto()
+    {
+        // Arrange
+        var account = BuildAccount("01123456", "usr-abc123");
+        _repository.GetByAccountNumberAsync("01123456").Returns(account);
+        _repository.UpdateAsync(Arg.Any<BankAccount>()).Returns(x => x.Arg<BankAccount>());
+
+        // Act
+        var result = await _sut.UpdateAccountAsync("01123456", "New Name", null, "usr-abc123");
+
+        // Assert
+        result.Name.Should().Be("New Name");
+        result.AccountNumber.Should().Be("01123456");
+    }
+
+    [Test]
+    public async Task UpdateAccountAsync_WhenAccountTypeProvided_UpdatesAccountType()
+    {
+        // Arrange
+        var account = BuildAccount("01123456", "usr-abc123");
+        _repository.GetByAccountNumberAsync("01123456").Returns(account);
+        _repository.UpdateAsync(Arg.Any<BankAccount>()).Returns(x => x.Arg<BankAccount>());
+
+        // Act
+        var result = await _sut.UpdateAccountAsync("01123456", null, AccountType.Personal, "usr-abc123");
+
+        // Assert
+        result.AccountType.Should().Be(AccountType.Personal);
+    }
+
+    [Test]
+    public async Task UpdateAccountAsync_UpdatesUpdatedTimestamp()
+    {
+        // Arrange
+        var before = DateTime.UtcNow;
+        var account = BuildAccount("01123456", "usr-abc123");
+        _repository.GetByAccountNumberAsync("01123456").Returns(account);
+        _repository.UpdateAsync(Arg.Any<BankAccount>()).Returns(x => x.Arg<BankAccount>());
+
+        // Act
+        var result = await _sut.UpdateAccountAsync("01123456", "New Name", null, "usr-abc123");
+
+        // Assert
+        result.UpdatedTimestamp.Should().BeOnOrAfter(before);
+    }
+
+    [Test]
+    public async Task UpdateAccountAsync_WhenAccountNotFound_ThrowsKeyNotFoundException()
+    {
+        // Arrange
+        _repository.GetByAccountNumberAsync(Arg.Any<string>()).Returns((BankAccount?)null);
+
+        // Act
+        var act = () => _sut.UpdateAccountAsync("01999999", "New Name", null, "usr-abc123");
+
+        // Assert
+        await act.Should().ThrowAsync<KeyNotFoundException>();
+    }
+
+    [Test]
+    public async Task UpdateAccountAsync_WhenNotOwner_ThrowsUnauthorizedAccessException()
+    {
+        // Arrange
+        var account = BuildAccount("01123456", "usr-abc123");
+        _repository.GetByAccountNumberAsync("01123456").Returns(account);
+
+        // Act
+        var act = () => _sut.UpdateAccountAsync("01123456", "New Name", null, "usr-other");
+
+        // Assert
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+    }
+
+    [Test]
+    public async Task UpdateAccountAsync_WhenDatabaseDown_PropagatesException()
+    {
+        // Arrange
+        _repository.GetByAccountNumberAsync(Arg.Any<string>()).ThrowsAsync(new Exception("Database connection failed"));
+
+        // Act
+        var act = () => _sut.UpdateAccountAsync("01123456", "New Name", null, "usr-abc123");
+
+        // Assert
+        await act.Should().ThrowAsync<Exception>().WithMessage("Database connection failed");
+    }
+
+    // DeleteAccountAsync
+
+    [Test]
+    public async Task DeleteAccountAsync_WhenOwner_CallsDeleteOnRepository()
+    {
+        // Arrange
+        var account = BuildAccount("01123456", "usr-abc123");
+        _repository.GetByAccountNumberAsync("01123456").Returns(account);
+
+        // Act
+        await _sut.DeleteAccountAsync("01123456", "usr-abc123");
+
+        // Assert
+        await _repository.Received(1).DeleteAsync(account);
+    }
+
+    [Test]
+    public async Task DeleteAccountAsync_WhenAccountNotFound_ThrowsKeyNotFoundException()
+    {
+        // Arrange
+        _repository.GetByAccountNumberAsync(Arg.Any<string>()).Returns((BankAccount?)null);
+
+        // Act
+        var act = () => _sut.DeleteAccountAsync("01999999", "usr-abc123");
+
+        // Assert
+        await act.Should().ThrowAsync<KeyNotFoundException>();
+    }
+
+    [Test]
+    public async Task DeleteAccountAsync_WhenNotOwner_ThrowsUnauthorizedAccessException()
+    {
+        // Arrange
+        var account = BuildAccount("01123456", "usr-abc123");
+        _repository.GetByAccountNumberAsync("01123456").Returns(account);
+
+        // Act
+        var act = () => _sut.DeleteAccountAsync("01123456", "usr-other");
+
+        // Assert
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+    }
+
+    [Test]
+    public async Task DeleteAccountAsync_WhenDatabaseDown_PropagatesException()
+    {
+        // Arrange
+        _repository.GetByAccountNumberAsync(Arg.Any<string>()).ThrowsAsync(new Exception("Database connection failed"));
+
+        // Act
+        var act = () => _sut.DeleteAccountAsync("01123456", "usr-abc123");
+
+        // Assert
+        await act.Should().ThrowAsync<Exception>().WithMessage("Database connection failed");
+    }
+
     private static BankAccount BuildAccount(string accountNumber, string userId) => new()
     {
         AccountNumber = accountNumber,

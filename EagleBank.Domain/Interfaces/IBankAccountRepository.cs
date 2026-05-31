@@ -8,4 +8,6 @@ public interface IBankAccountRepository
     Task<bool> ExistsByAccountNumberAsync(string accountNumber);
     Task<BankAccount?> GetByAccountNumberAsync(string accountNumber);
     Task<IEnumerable<BankAccount>> GetByUserIdAsync(string userId);
+    Task<BankAccount> UpdateAsync(BankAccount account);
+    Task DeleteAsync(BankAccount account);
 }

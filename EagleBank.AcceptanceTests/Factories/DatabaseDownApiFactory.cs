@@ -42,4 +42,6 @@ file class AlwaysThrowingBankAccountRepository : IBankAccountRepository
     public Task<bool> ExistsByAccountNumberAsync(string accountNumber) => throw new Exception(Message);
     public Task<BankAccount?> GetByAccountNumberAsync(string accountNumber) => throw new Exception(Message);
     public Task<IEnumerable<BankAccount>> GetByUserIdAsync(string userId) => throw new Exception(Message);
+    public Task<BankAccount> UpdateAsync(BankAccount account) => throw new Exception(Message);
+    public Task DeleteAsync(BankAccount account) => throw new Exception(Message);
 }
