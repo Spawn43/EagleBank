@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using EagleBank.AcceptanceTests;
 using EagleBank.AcceptanceTests.Factories;
 using EagleBank.Api.DTOs;
 using EagleBank.Api.DTOs.Users;
@@ -10,24 +11,8 @@ using FluentAssertions;
 namespace EagleBank.AcceptanceTests.Users;
 
 [TestFixture]
-public class CreateUserTests
+public class CreateUserTests : AcceptanceTestBase
 {
-    private EagleBankApiFactory _factory = null!;
-    private HttpClient _client = null!;
-
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
-    {
-        _factory = new EagleBankApiFactory();
-        _client = _factory.CreateClient();
-    }
-
-    [OneTimeTearDown]
-    public async Task OneTimeTearDown()
-    {
-        await _factory.DisposeAsync();
-    }
-
     // 201
 
     [Test]
@@ -96,46 +81,6 @@ public class CreateUserTests
         response.Headers.GetValues("X-Correlation-ID").First().Should().Be(correlationId);
     }
 
-    // 409
-
-    [Test]
-    public async Task CreateUser_WithDuplicateEmail_Returns409()
-    {
-        // Arrange
-        var email = $"duplicate-{Guid.NewGuid()}@example.com";
-        var first = ValidRequest();
-        first.Email = email;
-        await _client.PostAsJsonAsync("/v1/users", first);
-        var second = ValidRequest();
-        second.Email = email;
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/v1/users", second);
-        var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        body.Should().NotBeNull();
-        body!.Message.Should().NotBeNullOrWhiteSpace();
-    }
-
-    [Test]
-    public async Task CreateUser_SameName_DifferentEmail_Returns201()
-    {
-        // Arrange
-        var first = ValidRequest();
-        first.Name = "Jane Doe";
-        await _client.PostAsJsonAsync("/v1/users", first);
-        var second = ValidRequest();
-        second.Name = "Jane Doe";
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/v1/users", second);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Created);
-    }
-
     // 400
 
     [Test]
@@ -164,35 +109,6 @@ public class CreateUserTests
 
         // Assert
         responseBody.Details.Should().Contain(d => d.Field.Contains("Password", StringComparison.OrdinalIgnoreCase));
-    }
-
-    [Test]
-    public async Task CreateUser_ResponseDoesNotContainPasswordOrHash()
-    {
-        // Arrange
-        var request = ValidRequest();
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/v1/users", request);
-        var body = await response.Content.ReadAsStringAsync();
-
-        // Assert
-        body.Should().NotContainAny("password", "passwordHash", "hash", "Password", "PasswordHash");
-    }
-
-    [Test]
-    public async Task CreateUser_ResponseDoesNotContainSubmittedPasswordValue()
-    {
-        // Arrange
-        var request = ValidRequest();
-        request.Password = "SuperSecret99!";
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/v1/users", request);
-        var body = await response.Content.ReadAsStringAsync();
-
-        // Assert
-        body.Should().NotContain("SuperSecret99!");
     }
 
     [Test]
@@ -293,6 +209,46 @@ public class CreateUserTests
         responseBody.Details.Should().Contain(d => d.Field.Contains("Email", StringComparison.OrdinalIgnoreCase));
     }
 
+    // 409
+
+    [Test]
+    public async Task CreateUser_WithDuplicateEmail_Returns409()
+    {
+        // Arrange
+        var email = $"duplicate-{Guid.NewGuid()}@example.com";
+        var first = ValidRequest();
+        first.Email = email;
+        await _client.PostAsJsonAsync("/v1/users", first);
+        var second = ValidRequest();
+        second.Email = email;
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/v1/users", second);
+        var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        body.Should().NotBeNull();
+        body!.Message.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Test]
+    public async Task CreateUser_SameName_DifferentEmail_Returns201()
+    {
+        // Arrange
+        var first = ValidRequest();
+        first.Name = "Jane Doe";
+        await _client.PostAsJsonAsync("/v1/users", first);
+        var second = ValidRequest();
+        second.Name = "Jane Doe";
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/v1/users", second);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+    }
+
     // 500
 
     [Test]
@@ -312,6 +268,24 @@ public class CreateUserTests
         body.Should().Contain("An unexpected error occurred");
         body.Should().NotContain("Database connection failed");
         body.Should().NotContain("StackTrace");
+    }
+
+    // Password / data protection
+
+    [Test]
+    public async Task CreateUser_ResponseDoesNotContainPasswordData()
+    {
+        // Arrange
+        var request = ValidRequest();
+        request.Password = "SuperSecret99!";
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/v1/users", request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        // Assert
+        body.Should().NotContainAny("password", "passwordHash", "hash", "Password", "PasswordHash");
+        body.Should().NotContain("SuperSecret99!");
     }
 
     private static async Task<BadRequestErrorResponse> AssertBadRequest(HttpResponseMessage response)

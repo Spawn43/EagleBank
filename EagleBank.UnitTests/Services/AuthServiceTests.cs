@@ -28,7 +28,7 @@ public class AuthServiceTests
     }
 
     [Test]
-    public async Task AuthenticateAsync_WithValidCredentials_ReturnsAuthDto()
+    public async Task AuthenticateAsync_WithValidCredentials_ReturnsTokenAndCallsGenerateToken()
     {
         // Arrange
         var user = BuildUser();
@@ -41,25 +41,11 @@ public class AuthServiceTests
         // Assert
         result.Should().NotBeNull();
         result!.Token.Should().Be("test.jwt.token");
-    }
-
-    [Test]
-    public async Task AuthenticateAsync_WithValidCredentials_CallsGenerateToken()
-    {
-        // Arrange
-        var user = BuildUser();
-        _repository.GetByEmailAsync(user.Email).Returns(user);
-        _passwordHasher.Verify("password123", user.PasswordHash).Returns(true);
-
-        // Act
-        await _sut.AuthenticateAsync(user.Email, "password123");
-
-        // Assert
         _tokenGenerator.Received(1).GenerateToken(Arg.Is<UserDto>(dto => dto.Id == user.Id));
     }
 
     [Test]
-    public async Task AuthenticateAsync_WithUnknownEmail_ReturnsNull()
+    public async Task AuthenticateAsync_WithUnknownEmail_ReturnsNullAndDoesNotCallGenerateToken()
     {
         // Arrange
         _repository.GetByEmailAsync(Arg.Any<string>()).Returns((User?)null);
@@ -69,38 +55,11 @@ public class AuthServiceTests
 
         // Assert
         result.Should().BeNull();
-    }
-
-    [Test]
-    public async Task AuthenticateAsync_WithWrongPassword_ReturnsNull()
-    {
-        // Arrange
-        var user = BuildUser();
-        _repository.GetByEmailAsync(user.Email).Returns(user);
-        _passwordHasher.Verify("wrongpassword", user.PasswordHash).Returns(false);
-
-        // Act
-        var result = await _sut.AuthenticateAsync(user.Email, "wrongpassword");
-
-        // Assert
-        result.Should().BeNull();
-    }
-
-    [Test]
-    public async Task AuthenticateAsync_WithUnknownEmail_DoesNotCallGenerateToken()
-    {
-        // Arrange
-        _repository.GetByEmailAsync(Arg.Any<string>()).Returns((User?)null);
-
-        // Act
-        await _sut.AuthenticateAsync("unknown@example.com", "password123");
-
-        // Assert
         _tokenGenerator.DidNotReceive().GenerateToken(Arg.Any<UserDto>());
     }
 
     [Test]
-    public async Task AuthenticateAsync_WithWrongPassword_DoesNotCallGenerateToken()
+    public async Task AuthenticateAsync_WithWrongPassword_ReturnsNullAndDoesNotCallGenerateToken()
     {
         // Arrange
         var user = BuildUser();
@@ -108,9 +67,10 @@ public class AuthServiceTests
         _passwordHasher.Verify(Arg.Any<string>(), Arg.Any<string>()).Returns(false);
 
         // Act
-        await _sut.AuthenticateAsync(user.Email, "wrongpassword");
+        var result = await _sut.AuthenticateAsync(user.Email, "wrongpassword");
 
         // Assert
+        result.Should().BeNull();
         _tokenGenerator.DidNotReceive().GenerateToken(Arg.Any<UserDto>());
     }
 

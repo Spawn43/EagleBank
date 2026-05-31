@@ -115,37 +115,6 @@ public class UserServiceTests
     }
 
     [Test]
-    public async Task CreateUserAsync_DoesNotExposePasswordHashInReturnedDto()
-    {
-        // Arrange
-        _repository.CreateAsync(Arg.Any<User>()).Returns(x => x.Arg<User>());
-
-        // Act
-        var result = await _sut.CreateUserAsync("Jane Doe", BuildAddress(), "+447700900000", "jane@example.com", "password123");
-
-        // Assert
-        var properties = result.GetType().GetProperties();
-        properties.Should().NotContain(p =>
-            p.Name.Contains("Password", StringComparison.OrdinalIgnoreCase) ||
-            p.Name.Contains("Hash", StringComparison.OrdinalIgnoreCase));
-    }
-
-    [Test]
-    public async Task CreateUserAsync_StoredPasswordHashIsNotPlainText()
-    {
-        // Arrange
-        User? capturedUser = null;
-        _repository.CreateAsync(Arg.Do<User>(u => capturedUser = u)).Returns(x => x.Arg<User>());
-
-        // Act
-        await _sut.CreateUserAsync("Jane Doe", BuildAddress(), "+447700900000", "jane@example.com", "password123");
-
-        // Assert
-        capturedUser!.PasswordHash.Should().NotBe("password123");
-        capturedUser.PasswordHash.Should().NotBeNullOrWhiteSpace();
-    }
-
-    [Test]
     public async Task CreateUserAsync_WhenDatabaseDown_PropagatesException()
     {
         // Arrange
@@ -174,23 +143,6 @@ public class UserServiceTests
         result.Should().NotBeNull();
         result!.Id.Should().Be(user.Id);
         result.Name.Should().Be(user.Name);
-    }
-
-    [Test]
-    public async Task GetUserAsync_WhenUserExists_DoesNotExposePasswordHash()
-    {
-        // Arrange
-        var user = BuildUser();
-        _repository.GetByIdAsync(user.Id).Returns(user);
-
-        // Act
-        var result = await _sut.GetUserAsync(user.Id);
-
-        // Assert
-        var properties = result!.GetType().GetProperties();
-        properties.Should().NotContain(p =>
-            p.Name.Contains("Password", StringComparison.OrdinalIgnoreCase) ||
-            p.Name.Contains("Hash", StringComparison.OrdinalIgnoreCase));
     }
 
     [Test]

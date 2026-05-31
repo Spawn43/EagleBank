@@ -1,34 +1,17 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using EagleBank.AcceptanceTests;
 using EagleBank.AcceptanceTests.Factories;
 using EagleBank.AcceptanceTests.Helpers;
 using EagleBank.Api.DTOs;
-using EagleBank.Api.DTOs.Auth;
-using EagleBank.Api.DTOs.Users;
 using FluentAssertions;
 
 namespace EagleBank.AcceptanceTests.Users;
 
 [TestFixture]
-public class DeleteUserTests
+public class DeleteUserTests : AcceptanceTestBase
 {
-    private EagleBankApiFactory _factory = null!;
-    private HttpClient _client = null!;
-
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
-    {
-        _factory = new EagleBankApiFactory();
-        _client = _factory.CreateClient();
-    }
-
-    [OneTimeTearDown]
-    public async Task OneTimeTearDown()
-    {
-        await _factory.DisposeAsync();
-    }
-
     // 204
 
     [Test]
@@ -145,33 +128,5 @@ public class DeleteUserTests
         response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
         body.Should().NotContain("Database connection failed");
         body.Should().NotContain("StackTrace");
-    }
-
-    private async Task<(UserResponse user, string token)> CreateUserAndAuthenticate()
-    {
-        var email = $"jane-{Guid.NewGuid()}@example.com";
-        var createRequest = new CreateUserRequest
-        {
-            Name = "Jane Doe",
-            Address = new AddressDto { Line1 = "123 Test Street", Town = "London", County = "Greater London", Postcode = "EC1A 1BB" },
-            PhoneNumber = "+447700900000",
-            Email = email,
-            Password = "password123"
-        };
-        var createResponse = await _client.PostAsJsonAsync("/v1/users", createRequest);
-        var user = (await createResponse.Content.ReadFromJsonAsync<UserResponse>())!;
-
-        var tokenRequest = new AuthRequest { Email = email, Password = "password123" };
-        var tokenResponse = await _client.PostAsJsonAsync("/v1/auth/token", tokenRequest);
-        var tokenBody = (await tokenResponse.Content.ReadFromJsonAsync<AuthResponse>())!;
-
-        return (user, tokenBody.Token);
-    }
-
-    private HttpClient AuthenticatedClient(string token)
-    {
-        var client = _factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        return client;
     }
 }

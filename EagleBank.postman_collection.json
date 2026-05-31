@@ -18,6 +18,16 @@
       "key": "userId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "accountNumber",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "transactionId",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -110,6 +120,158 @@
             "method": "DELETE",
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{baseUrl}}/v1/users/{{userId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Accounts",
+      "item": [
+        {
+          "name": "POST /v1/accounts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('accountNumber', body.accountNumber);",
+                  "    console.log('accountNumber saved:', body.accountNumber);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/v1/accounts",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Personal Account\",\n  \"accountType\": \"personal\"\n}"
+            }
+          }
+        },
+        {
+          "name": "GET /v1/accounts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/v1/accounts"
+          }
+        },
+        {
+          "name": "GET /v1/accounts/:accountNumber",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/v1/accounts/{{accountNumber}}"
+          }
+        },
+        {
+          "name": "PATCH /v1/accounts/:accountNumber",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/v1/accounts/{{accountNumber}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Updated Account\"\n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE /v1/accounts/:accountNumber",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/v1/accounts/{{accountNumber}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transactions",
+      "item": [
+        {
+          "name": "POST /v1/accounts/:accountNumber/transactions (deposit)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('transactionId', body.id);",
+                  "    console.log('transactionId saved:', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/v1/accounts/{{accountNumber}}/transactions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 500.00,\n  \"currency\": \"GBP\",\n  \"type\": \"deposit\",\n  \"reference\": \"Initial deposit\"\n}"
+            }
+          }
+        },
+        {
+          "name": "POST /v1/accounts/:accountNumber/transactions (withdrawal)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('transactionId', body.id);",
+                  "    console.log('transactionId saved:', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/v1/accounts/{{accountNumber}}/transactions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 100.00,\n  \"currency\": \"GBP\",\n  \"type\": \"withdrawal\",\n  \"reference\": \"ATM withdrawal\"\n}"
+            }
+          }
+        },
+        {
+          "name": "GET /v1/accounts/:accountNumber/transactions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/v1/accounts/{{accountNumber}}/transactions"
+          }
+        },
+        {
+          "name": "GET /v1/accounts/:accountNumber/transactions/:transactionId",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/v1/accounts/{{accountNumber}}/transactions/{{transactionId}}"
           }
         }
       ]
